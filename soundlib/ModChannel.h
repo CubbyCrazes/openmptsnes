@@ -120,6 +120,7 @@ struct ModChannel
 	uint8 nRestoreResonanceOnNewNote;  // See nRestorePanOnNewNote
 	uint8 nRestoreCutoffOnNewNote;     // ditto
 	uint8 nNote;
+	uint8 noteTickDelay;
 	NewNoteAction nNNA;
 	uint8 nLastNote;  // Last note, ignoring note offs and cuts - for MIDI macros
 	uint8 nArpeggioLastNote, lastMidiNoteWithoutArp;  // For plugin arpeggio and NNA handling
@@ -222,6 +223,8 @@ struct ModChannel
 	bool InSustainLoop() const noexcept;
 
 	void UpdateInstrumentVolume(const ModSample *smp, const ModInstrument *ins);
+
+	void UpdateInstrumentNoteTickDelay(const ModInstrument *ins);
 
 	void SetInstrumentPan(int32 pan, const CSoundFile &sndFile);
 	void RestorePanAndFilter();

@@ -985,6 +985,7 @@
 #define IDC_COMBO_RECORDING_SOURCE      2515
 #define IDC_CHECK_UPDATEINSTALLAUTOMATICALLY 2516
 #define IDC_SUBSONG                     2517
+#define IDC_EDIT3008                    2518
 #define ID_FILE_NEWMOD                  32771
 #define ID_FILE_NEWXM                   32772
 #define ID_FILE_NEWS3M                  32773

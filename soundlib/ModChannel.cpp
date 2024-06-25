@@ -130,6 +130,11 @@ void ModChannel::UpdateInstrumentVolume(const ModSample *smp, const ModInstrumen
 		nInsVol = static_cast<uint8>((nInsVol * ins->nGlobalVol) / 64);
 }
 
+void ModChannel::UpdateInstrumentNoteTickDelay(const ModInstrument *ins)
+{
+	if(ins != nullptr)
+		noteTickDelay = ins->noteTickDelay;
+}
 
 uint32 ModChannel::GetVSTVolume() const noexcept
 {

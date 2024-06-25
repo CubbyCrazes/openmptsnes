@@ -85,6 +85,7 @@ struct ModInstrument
 
 	uint8 nPanSwing = 0;  // Random panning factor (0...64)
 	uint8 nVolSwing = 0;  // Random volume factor (0...100)
+	uint8 noteTickDelay = 0;
 
 	uint8 nIFC = 0;                                 // Default filter cutoff (0...127). Used if the high bit is set
 	uint8 nIFR = 0;                                 // Default filter resonance (0...127). Used if the high bit is set
