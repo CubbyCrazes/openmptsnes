@@ -2475,7 +2475,7 @@ CString CTrackApp::GetResamplingModeName(ResamplingMode mode, int length, bool a
 		result = _T("Linear");
 		break;
 	case SRCMODE_CUBIC:
-		result = _T("Cubic");
+		result = _T("Gaussian");
 		break;
 	case SRCMODE_SINC8:
 		result = _T("Sinc");

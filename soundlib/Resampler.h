@@ -85,7 +85,7 @@ class CResampler
 public:
 	CResamplerSettings m_Settings;
 	CWindowedFIR m_WindowedFIR;
-	static const int16 FastSincTable[256 * 4];
+	static const int16 FastSincTable[512 * 4];
 
 #ifdef MODPLUG_TRACKER
 	static bool StaticTablesInitialized;

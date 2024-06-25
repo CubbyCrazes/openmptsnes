@@ -141,7 +141,7 @@ struct FastSincInterpolation
 	MPT_FORCEINLINE void operator() (typename Traits::outbuf_t &outSample, const typename Traits::input_t * const MPT_RESTRICT inBuffer, const uint32 posLo)
 	{
 		static_assert(static_cast<int>(Traits::numChannelsIn) <= static_cast<int>(Traits::numChannelsOut), "Too many input channels");
-		const int16 *lut = CResampler::FastSincTable + ((posLo >> 22) & 0x3FC);
+		const int16 *lut = CResampler::FastSincTable + ((posLo >> 21) & 0x7FC);
 
 		for(int i = 0; i < Traits::numChannelsIn; i++)
 		{
