@@ -336,7 +336,6 @@ void WriteInstrumentHeaderStructOrField(ModInstrument * input, std::ostream &fil
 	WRITE_MPTHEADER_sized_member(	PanEnv.dwFlags				, uint8		, MagicBE("AFLG")	)
 	WRITE_MPTHEADER_sized_member(	VolEnv.dwFlags				, uint8		, MagicBE("VFLG")	)
 	WRITE_MPTHEADER_sized_member(	midiPWD						, int8		, MagicBE("MPWD")	)
-	WRITE_MPTHEADER_sized_member(	noteTickDelay				, uint8		, MagicBE("nD:)")	)
 	// clang-format on
 
 }
@@ -621,7 +620,6 @@ bool ReadInstrumentHeaderField(ModInstrument *input, uint32 fcode, uint16 fsize,
 	GET_MPTHEADER_sized_member(	PanEnv.dwFlags			, uint8			, MagicBE("AFLG")	)
 	GET_MPTHEADER_sized_member(	VolEnv.dwFlags			, uint8			, MagicBE("VFLG")	)
 	GET_MPTHEADER_sized_member(	midiPWD					, int8			, MagicBE("MPWD")	)
-	GET_MPTHEADER_sized_member(	noteTickDelay			, uint8			, MagicBE("nD:)")	)
 	// clang-format on
 	case MagicBE("R..."):
 	{

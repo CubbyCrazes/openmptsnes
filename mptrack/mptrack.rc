@@ -340,7 +340,7 @@ END
 
 IDD_INPUT DIALOGEX 0, 0, 166, 66
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTERMOUSE | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "OpenMPT"
+CAPTION "OpenMPT: SNES Edition!"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "",IDC_PROMPT,6,6,156,12
@@ -1402,7 +1402,7 @@ BEGIN
     CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDHORZ,6,102,234,1
 END
 
-IDD_CONTROL_GLOBALS DIALOGEX 0, 0, 440, 122
+IDD_CONTROL_GLOBALS DIALOGEX 0, 0, 601, 122
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -1443,6 +1443,16 @@ BEGIN
     GROUPBOX        "",IDC_STATIC,1,30,96,88
     GROUPBOX        "",IDC_STATIC,96,30,67,88
     GROUPBOX        "",IDC_STATIC,162,30,180,88
+    LTEXT           "Note Tick Delay:",IDC_STATIC,386,39,53,8
+    GROUPBOX        "",IDC_STATIC,382,32,68,47
+    EDITTEXT        IDC_EDIT_NOTETICKDELAY,384,50,36,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "",IDC_SPIN_NOTETICKDELAY,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_NOTHOUSANDS,414,47,11,14
+    GROUPBOX        "",IDC_STATIC,383,0,144,30
+    LTEXT           "OpenMPT: SNES Edition!",IDC_STATIC,389,6,122,8
+    RTEXT           "Mod by Cubby Crazes",IDC_STATIC,395,18,122,8
+    CTEXT           "Not saved in song!",IDC_STATIC,384,65,64,12
+    RTEXT           "Da Bob ->",IDC_STATIC,407,93,64,12
+    CONTROL         IDB_BITMAP3,IDC_STATIC,"Static",SS_BITMAP | SS_CENTERIMAGE | SS_REALSIZEIMAGE | WS_TABSTOP,475,64,51,53
 END
 
 IDD_CONTROL_COMMENTS DIALOGEX 0, 0, 435, 119
@@ -1643,10 +1653,6 @@ BEGIN
     GROUPBOX        "Plugin / MIDI",IDC_STATIC,240,88,222,80
     GROUPBOX        "Alternative Tuning",IDC_STATIC,364,27,98,28
     GROUPBOX        "Pitch/Tempo Lock",IDC_STATIC,364,57,98,30
-
-    CTEXT           "Note Tick Delay",IDC_STATIC,536,136,72,12,SS_CENTERIMAGE,WS_EX_STATICEDGE
-    EDITTEXT        IDC_EDIT3008,536,152,72,12,ES_AUTOHSCROLL | ES_NUMBER
-    CONTROL         "Spin1",IDC_EDIT3008,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_NOTHOUSANDS,590,142,8,10
 END
 
 IDD_MODDOC_MODTYPE DIALOGEX 0, 0, 262, 287
@@ -2366,7 +2372,7 @@ BEGIN
 
     IDD_CONTROL_GLOBALS, DIALOG
     BEGIN
-        RIGHTMARGIN, 374
+        RIGHTMARGIN, 535
         BOTTOMMARGIN, 118
     END
 
@@ -2580,6 +2586,16 @@ END
 // remains consistent on all systems.
 IDR_MAINFRAME           ICON                    "res\\mptrack.ico"
 
+IDI_ICON1               ICON                    "res\\icon1.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// PNG
+//
+
+IDB_PNG1                PNG                     "D:\\the plumba guy and um yeah.png"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -2754,6 +2770,12 @@ IDB_PATTERNVIEW         BITMAP                  "res\\view_pat.bmp"
 
 IDB_COLORSETUP          BITMAP                  "res\\colors.bmp"
 
+IDB_BITMAP1             BITMAP                  "res\\bitmap1.bmp"
+
+IDB_BITMAP2             BITMAP                  "res\\bitmap2.bmp"
+
+IDB_BITMAP3             BITMAP                  "C:\\Users\\Cubby\\Downloads\\bob2.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -2926,7 +2948,7 @@ IDC_NODRAG              CURSOR                  "res\\nodrag.cur"
 
 STRINGTABLE
 BEGIN
-    IDR_MAINFRAME           "OpenMPT"
+    IDR_MAINFRAME           "OpenMPT: SNES Edition!"
     IDR_MODULETYPE          "\nModule\nuntitled\nMusic Modules (*.mod;*.s3m;*.it;*.xm)\n.mod\nModplugTracker.Document\nMusic Module"
     ID_PATTERN_CHANNELMANAGER 
                             "Display Channel Manager window\nChannel Manager"
@@ -2943,7 +2965,7 @@ END
 
 STRINGTABLE
 BEGIN
-    AFX_IDS_APP_TITLE       "OpenMPT"
+    AFX_IDS_APP_TITLE       "OpenMPT: SNES Edition!"
     AFX_IDS_IDLEMESSAGE     "Ready"
 END
 

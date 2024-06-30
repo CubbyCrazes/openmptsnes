@@ -170,7 +170,6 @@ protected:
 	afx_msg void OnFileNameChanged();
 	afx_msg void OnFadeOutVolChanged();
 	afx_msg void OnGlobalVolChanged();
-	afx_msg void OnNoteTickDelayChanged();
 	afx_msg void OnSetPanningChanged();
 	afx_msg void OnPanningChanged();
 	afx_msg void OnNNAChanged();

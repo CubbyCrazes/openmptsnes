@@ -42,6 +42,7 @@ public:
 	ROWINDEX m_nCurrentRowsPerMeasure = 0;  // Current time signature
 	uint32 m_nMusicSpeed = 0;               // Current speed
 	TEMPO m_nMusicTempo;                    // Current tempo
+	uint32 m_nNoteTickDelay = 0;
 
 	// Playback position
 	ROWINDEX m_nRow = 0;      // Current row being processed

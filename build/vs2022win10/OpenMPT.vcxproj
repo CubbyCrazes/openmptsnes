@@ -2331,15 +2331,21 @@
     <ResourceCompile Include="..\..\mptrack\mptrack.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\..\..\Downloads\bob2.bmp" />
     <Image Include="..\..\mptrack\res\About.png" />
+    <Image Include="..\..\mptrack\res\bitmap1.bmp" />
+    <Image Include="..\..\mptrack\res\bitmap2.bmp" />
     <Image Include="..\..\mptrack\res\COLORS.BMP" />
+    <Image Include="..\..\mptrack\res\icon1.ico" />
     <Image Include="..\..\mptrack\res\Splash.png" />
     <Image Include="..\..\mptrack\res\envelope_toolbar.png" />
     <Image Include="..\..\mptrack\res\icons.png" />
     <Image Include="..\..\mptrack\res\main_toolbar.png" />
     <Image Include="..\..\mptrack\res\pattern_toolbar.png" />
     <Image Include="..\..\mptrack\res\sample_toolbar.png" />
+    <Image Include="..\..\mptrack\res\splashno.png" />
     <Image Include="..\..\mptrack\res\view_pat.bmp" />
+    <Image Include="D:\the plumba guy and um yeah.png" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\vs\debug\openmpt.natvis" />

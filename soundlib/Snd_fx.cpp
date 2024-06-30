@@ -1435,7 +1435,6 @@ std::vector<GetLengthType> CSoundFile::GetLength(enmGetLengthResetMode adjustMod
 	return results;
 }
 
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Effects
 
@@ -2773,971 +2772,998 @@ bool CSoundFile::ProcessEffects()
 		}
 
 		// Handles note/instrument/volume changes
-		if(triggerNote)
-		{
+		//if(true)
+		//{
 			ModCommand::NOTE note = chn.rowCommand.note;
 			if(instr) chn.nNewIns = static_cast<ModCommand::INSTR>(instr);
 
-			if(ModCommand::IsNote(note) && m_playBehaviour[kFT2Transpose])
+			if((((tickCount - nStartTick) < m_PlayState.m_nNoteTickDelay) || ((m_PlayState.m_nNoteTickDelay == 0) && ((tickCount - nStartTick) == 0))) && ModCommand::IsNote(note))
 			{
-				// Notes that exceed FT2's limit are completely ignored.
-				// Test case: NoteLimit.xm
-				int transpose = chn.nTranspose;
-				if(instr && !bPorta)
-				{
-					// Refresh transpose
-					// Test case: NoteLimit2.xm
-					const SAMPLEINDEX sample = GetSampleIndex(note, instr);
-					if(sample > 0)
-						transpose = GetSample(sample).RelativeTone;
-				}
-
-				const int computedNote = note + transpose;
-				if((computedNote < NOTE_MIN + 11 || computedNote > NOTE_MIN + 130))
-				{
-					note = NOTE_NONE;
-				}
-			} else if((GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_J2B)) && GetNumInstruments() != 0 && ModCommand::IsNoteOrEmpty(static_cast<ModCommand::NOTE>(note)))
-			{
-				// IT compatibility: Invalid instrument numbers do nothing, but they are remembered for upcoming notes and do not trigger a note in that case.
-				// Test case: InstrumentNumberChange.it
-				INSTRUMENTINDEX instrToCheck = static_cast<INSTRUMENTINDEX>((instr != 0) ? instr : chn.nOldIns);
-				if(instrToCheck != 0 && (instrToCheck > GetNumInstruments() || Instruments[instrToCheck] == nullptr))
-				{
-					note = NOTE_NONE;
-					instr = 0;
-				}
+				chn.nVolume = 0;
+				chn.nRealVolume = 0;
+				chn.nInsVol = 0;
+				KeyOff(chn);
+				chn.noteTickDelay = m_PlayState.m_nNoteTickDelay;
+				chn.oldNote = note;
+				chn.oldInstr = instr;
+				chn.oldNewIns = chn.nNewIns;
 			}
-
-			// XM: FT2 ignores a note next to a K00 effect, and a fade-out seems to be done when no volume envelope is present (not exactly the Kxx behaviour)
-			if(cmd == CMD_KEYOFF && param == 0 && m_playBehaviour[kFT2KeyOff])
-			{
-				note = NOTE_NONE;
-				instr = 0;
-			}
-
-			bool retrigEnv = note == NOTE_NONE && instr != 0;
-
-			// Apparently, any note number in a pattern causes instruments to recall their original volume settings - no matter if there's a Note Off next to it or whatever.
-			// Test cases: keyoff+instr.xm, delay.xm
-			bool reloadSampleSettings = (m_playBehaviour[kFT2ReloadSampleSettings] && instr != 0);
-			bool keepInstr = (GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) || m_playBehaviour[kST3SampleSwap];
-			if(m_playBehaviour[kMODSampleSwap])
-			{
-				// ProTracker Compatibility: If a sample was stopped before, lone instrument numbers can retrigger it
-				// Test cases: PTSwapEmpty.mod, PTInstrVolume.mod, PTStoppedSwap.mod
-				if(!chn.IsSamplePlaying() && instr <= GetNumSamples() && Samples[instr].uFlags[CHN_LOOP])
-					keepInstr = true;
-			}
-
-			// Now it's time for some FT2 crap...
-			if (GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2))
-			{
-				// XM: Key-Off + Sample == Note Cut (BUT: Only if no instr number or volume effect is present!)
-				// Test case: NoteOffVolume.xm
-				if(note == NOTE_KEYOFF
-					&& ((!instr && volcmd != VOLCMD_VOLUME && cmd != CMD_VOLUME) || !m_playBehaviour[kFT2KeyOff])
-					&& (chn.pModInstrument == nullptr || !chn.pModInstrument->VolEnv.dwFlags[ENV_ENABLED]))
+			//(((tickCount - nStartTick) == 2) && ModCommand::IsNote(note)) || 
+			if(chn.noteTickDelay == 0)
+			{//pooparino
+				//if(chn.noteTickDelay == 0)
+				//{
+					note = chn.oldNote;
+					instr = chn.oldInstr;
+					chn.nNewIns = chn.oldNewIns;
+				//}
+				if(ModCommand::IsNote(note) && m_playBehaviour[kFT2Transpose])
 				{
-					chn.dwFlags.set(CHN_FASTVOLRAMP);
-					chn.nVolume = 0;
-					note = NOTE_NONE;
-					instr = 0;
-					retrigEnv = false;
-					// FT2 Compatibility: Start fading the note for notes with no delay. Only relevant when a volume command is encountered after the note-off.
-					// Test case: NoteOffFadeNoEnv.xm
-					if(m_PlayState.m_flags[SONG_FIRSTTICK] && m_playBehaviour[kFT2NoteOffFlags])
-						chn.dwFlags.set(CHN_NOTEFADE);
-				} else if(m_playBehaviour[kFT2RetrigWithNoteDelay] && !m_PlayState.m_flags[SONG_FIRSTTICK])
-				{
-					// FT2 Compatibility: Some special hacks for rogue note delays... (EDx with x > 0)
-					// Apparently anything that is next to a note delay behaves totally unpredictable in FT2. Swedish tracker logic. :)
-
-					retrigEnv = true;
-
-					// Portamento + Note Delay = No Portamento
-					// Test case: porta-delay.xm
-					bPorta = false;
-
-					if(note == NOTE_NONE)
+					// Notes that exceed FT2's limit are completely ignored.
+					// Test case: NoteLimit.xm
+					int transpose = chn.nTranspose;
+					if(instr && !bPorta)
 					{
-						// If there's a note delay but no real note, retrig the last note.
-						// Test case: delay2.xm, delay3.xm
-						note = static_cast<ModCommand::NOTE>(chn.nNote - chn.nTranspose);
-					} else if(note >= NOTE_MIN_SPECIAL)
+						// Refresh transpose
+						// Test case: NoteLimit2.xm
+						const SAMPLEINDEX sample = GetSampleIndex(note, instr);
+						if(sample > 0)
+							transpose = GetSample(sample).RelativeTone;
+					}
+
+					const int computedNote = note + transpose;
+					if((computedNote < NOTE_MIN + 11 || computedNote > NOTE_MIN + 130))
 					{
-						// Gah! Even Note Off + Note Delay will cause envelopes to *retrigger*! How stupid is that?
-						// ... Well, and that is actually all it does if there's an envelope. No fade out, no nothing. *sigh*
-						// Test case: OffDelay.xm
 						note = NOTE_NONE;
-						keepInstr = false;
-						reloadSampleSettings = true;
-					} else if(instr || !m_playBehaviour[kFT2NoteDelayWithoutInstr])
+					}
+				} else if((GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_J2B)) && GetNumInstruments() != 0 && ModCommand::IsNoteOrEmpty(static_cast<ModCommand::NOTE>(note)))
+				{
+					// IT compatibility: Invalid instrument numbers do nothing, but they are remembered for upcoming notes and do not trigger a note in that case.
+					// Test case: InstrumentNumberChange.it
+					INSTRUMENTINDEX instrToCheck = static_cast<INSTRUMENTINDEX>((instr != 0) ? instr : chn.nOldIns);
+					if(instrToCheck != 0 && (instrToCheck > GetNumInstruments() || Instruments[instrToCheck] == nullptr))
 					{
-						// Normal note (only if there is an instrument, test case: DelayVolume.xm)
+						note = NOTE_NONE;
+						instr = 0;
+					}
+				}
+
+				// XM: FT2 ignores a note next to a K00 effect, and a fade-out seems to be done when no volume envelope is present (not exactly the Kxx behaviour)
+				if(cmd == CMD_KEYOFF && param == 0 && m_playBehaviour[kFT2KeyOff])
+				{
+					note = NOTE_NONE;
+					instr = 0;
+				}
+
+				bool retrigEnv = note == NOTE_NONE && instr != 0;
+
+				// Apparently, any note number in a pattern causes instruments to recall their original volume settings - no matter if there's a Note Off next to it or whatever.
+				// Test cases: keyoff+instr.xm, delay.xm
+				bool reloadSampleSettings = (m_playBehaviour[kFT2ReloadSampleSettings] && instr != 0);
+				bool keepInstr = (GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) || m_playBehaviour[kST3SampleSwap];
+				if(m_playBehaviour[kMODSampleSwap])
+				{
+					// ProTracker Compatibility: If a sample was stopped before, lone instrument numbers can retrigger it
+					// Test cases: PTSwapEmpty.mod, PTInstrVolume.mod, PTStoppedSwap.mod
+					if(!chn.IsSamplePlaying() && instr <= GetNumSamples() && Samples[instr].uFlags[CHN_LOOP])
 						keepInstr = true;
-						reloadSampleSettings = true;
-					}
-				}
-			}
-
-			if((retrigEnv && !m_playBehaviour[kFT2ReloadSampleSettings]) || reloadSampleSettings)
-			{
-				const ModSample *oldSample = nullptr;
-				// Reset default volume when retriggering envelopes
-
-				if(GetNumInstruments())
-				{
-					oldSample = chn.pModSample;
-				} else if (instr <= GetNumSamples())
-				{
-					// Case: Only samples are used; no instruments.
-					oldSample = &Samples[instr];
 				}
 
-				if(oldSample != nullptr)
+				// Now it's time for some FT2 crap...
+				if(GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2))
 				{
-					if(!oldSample->uFlags[SMP_NODEFAULTVOLUME] && (GetType() != MOD_TYPE_S3M || oldSample->HasSampleData()))
+					// XM: Key-Off + Sample == Note Cut (BUT: Only if no instr number or volume effect is present!)
+					// Test case: NoteOffVolume.xm
+					if(note == NOTE_KEYOFF
+					   && ((!instr && volcmd != VOLCMD_VOLUME && cmd != CMD_VOLUME) || !m_playBehaviour[kFT2KeyOff])
+					   && (chn.pModInstrument == nullptr || !chn.pModInstrument->VolEnv.dwFlags[ENV_ENABLED]))
 					{
-						chn.nVolume = oldSample->nVolume;
 						chn.dwFlags.set(CHN_FASTVOLRAMP);
-					}
-					if(reloadSampleSettings)
+						chn.nVolume = 0;
+						note = NOTE_NONE;
+						instr = 0;
+						retrigEnv = false;
+						// FT2 Compatibility: Start fading the note for notes with no delay. Only relevant when a volume command is encountered after the note-off.
+						// Test case: NoteOffFadeNoEnv.xm
+						if(m_PlayState.m_flags[SONG_FIRSTTICK] && m_playBehaviour[kFT2NoteOffFlags])
+							chn.dwFlags.set(CHN_NOTEFADE);
+					} else if(m_playBehaviour[kFT2RetrigWithNoteDelay] && !m_PlayState.m_flags[SONG_FIRSTTICK])
 					{
-						// Also reload panning
-						chn.SetInstrumentPan(oldSample->nPan, *this);
+						// FT2 Compatibility: Some special hacks for rogue note delays... (EDx with x > 0)
+						// Apparently anything that is next to a note delay behaves totally unpredictable in FT2. Swedish tracker logic. :)
+
+						retrigEnv = true;
+
+						// Portamento + Note Delay = No Portamento
+						// Test case: porta-delay.xm
+						bPorta = false;
+
+						if(note == NOTE_NONE)
+						{
+							// If there's a note delay but no real note, retrig the last note.
+							// Test case: delay2.xm, delay3.xm
+							note = static_cast<ModCommand::NOTE>(chn.nNote - chn.nTranspose);
+						} else if(note >= NOTE_MIN_SPECIAL)
+						{
+							// Gah! Even Note Off + Note Delay will cause envelopes to *retrigger*! How stupid is that?
+							// ... Well, and that is actually all it does if there's an envelope. No fade out, no nothing. *sigh*
+							// Test case: OffDelay.xm
+							note = NOTE_NONE;
+							keepInstr = false;
+							reloadSampleSettings = true;
+						} else if(instr || !m_playBehaviour[kFT2NoteDelayWithoutInstr])
+						{
+							// Normal note (only if there is an instrument, test case: DelayVolume.xm)
+							keepInstr = true;
+							reloadSampleSettings = true;
+						}
 					}
 				}
-			}
 
-			// FT2 compatibility: Instrument number disables tremor effect
-			// Test case: TremorInstr.xm, TremoRecover.xm
-			if(m_playBehaviour[kFT2Tremor] && instr != 0)
-			{
-				chn.nTremorCount = 0x20;
-			}
-
-			// IT compatibility: Envelope retriggering with instrument number based on Old Effects and Compatible Gxx flags:
-			// OldFX CompatGxx Env Behaviour
-			// ----- --------- -------------
-			//  off     off    never reset
-			//  on      off    reset on instrument without portamento
-			//  off     on     reset on instrument with portamento
-			//  on      on     always reset
-			// Test case: ins-xx.it, ins-ox.it, ins-oc.it, ins-xc.it, ResetEnvNoteOffOldFx.it, ResetEnvNoteOffOldFx2.it, noteoff3.it
-			if(GetNumInstruments() && m_playBehaviour[kITInstrWithNoteOffOldEffects]
-				&& instr && !ModCommand::IsNote(note))
-			{
-				if((bPorta && m_SongFlags[SONG_ITCOMPATGXX])
-					|| (!bPorta && m_SongFlags[SONG_ITOLDEFFECTS]))
+				if((retrigEnv && !m_playBehaviour[kFT2ReloadSampleSettings]) || reloadSampleSettings)
 				{
-					chn.ResetEnvelopes();
-					chn.dwFlags.set(CHN_FASTVOLRAMP);
-					chn.nFadeOutVol = 65536;
-				}
-			}
+					const ModSample *oldSample = nullptr;
+					// Reset default volume when retriggering envelopes
 
-			if(retrigEnv) //Case: instrument with no note data.
-			{
-				//IT compatibility: Instrument with no note.
-				if(m_playBehaviour[kITInstrWithoutNote] || GetType() == MOD_TYPE_PLM)
-				{
-					// IT compatibility: Completely retrigger note after sample end to also reset portamento.
-					// Test case: PortaResetAfterRetrigger.it
-					bool triggerAfterSmpEnd = m_playBehaviour[kITMultiSampleInstrumentNumber] && !chn.IsSamplePlaying();
 					if(GetNumInstruments())
 					{
-						// Instrument mode
-						if(instr <= GetNumInstruments() && (chn.pModInstrument != Instruments[instr] || triggerAfterSmpEnd))
-							note = chn.nNote;
-					} else
+						oldSample = chn.pModSample;
+					} else if(instr <= GetNumSamples())
 					{
-						// Sample mode
-						if(instr < MAX_SAMPLES && (chn.pModSample != &Samples[instr] || triggerAfterSmpEnd))
-							note = chn.nNote;
+						// Case: Only samples are used; no instruments.
+						oldSample = &Samples[instr];
+					}
+
+					if(oldSample != nullptr)
+					{
+						if(!oldSample->uFlags[SMP_NODEFAULTVOLUME] && (GetType() != MOD_TYPE_S3M || oldSample->HasSampleData()))
+						{
+							chn.nVolume = oldSample->nVolume;
+							chn.dwFlags.set(CHN_FASTVOLRAMP);
+						}
+						if(reloadSampleSettings)
+						{
+							// Also reload panning
+							chn.SetInstrumentPan(oldSample->nPan, *this);
+						}
 					}
 				}
 
-				if(GetNumInstruments() && (GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2 | MOD_TYPE_MED)))
+				// FT2 compatibility: Instrument number disables tremor effect
+				// Test case: TremorInstr.xm, TremoRecover.xm
+				if(m_playBehaviour[kFT2Tremor] && instr != 0)
 				{
-					chn.ResetEnvelopes();
-					chn.dwFlags.set(CHN_FASTVOLRAMP);
-					chn.dwFlags.reset(CHN_NOTEFADE);
-					chn.nAutoVibDepth = 0;
-					chn.nAutoVibPos = 0;
-					chn.nFadeOutVol = 65536;
-					// FT2 Compatibility: Reset key-off status with instrument number
-					// Test case: NoteOffInstrChange.xm
-					if(m_playBehaviour[kFT2NoteOffFlags])
-						chn.dwFlags.reset(CHN_KEYOFF);
-				}
-				if (!keepInstr) instr = 0;
-			}
-
-			// Note Cut/Off/Fade => ignore instrument
-			if (note >= NOTE_MIN_SPECIAL)
-			{
-				// IT compatibility: Default volume of sample is recalled if instrument number is next to a note-off.
-				// Test case: NoteOffInstr.it, noteoff2.it
-				if(m_playBehaviour[kITInstrWithNoteOff] && instr)
-				{
-					const SAMPLEINDEX smp = GetSampleIndex(chn.nLastNote, instr);
-					if(smp > 0 && !Samples[smp].uFlags[SMP_NODEFAULTVOLUME])
-						chn.nVolume = Samples[smp].nVolume;
-				}
-				// IT compatibility: Note-off with instrument number + Old Effects retriggers envelopes.
-				// Test case: ResetEnvNoteOffOldFx.it
-				if(!m_playBehaviour[kITInstrWithNoteOffOldEffects] || !m_SongFlags[SONG_ITOLDEFFECTS])
-					instr = 0;
-			}
-
-			const auto previousNewNote = chn.nNewNote;
-			if(ModCommand::IsNote(note))
-			{
-				chn.nNewNote = chn.nLastNote = note;
-
-				// New Note Action ?
-				if(!bPorta)
-				{
-					CheckNNA(nChn, instr, note, false);
+					chn.nTremorCount = 0x20;
 				}
 
-				chn.RestorePanAndFilter();
-			}
-
-			// Instrument Change ?
-			if(instr)
-			{
-				const ModSample *oldSample = chn.pModSample;
-				//const ModInstrument *oldInstrument = chn.pModInstrument;
-
-				InstrumentChange(chn, instr, bPorta, true);
-
-				if(!chn.dwFlags[CHN_MUTE | CHN_SYNCMUTE] && chn.pModSample != nullptr && chn.pModSample->uFlags[CHN_ADLIB] && m_opl)
+				// IT compatibility: Envelope retriggering with instrument number based on Old Effects and Compatible Gxx flags:
+				// OldFX CompatGxx Env Behaviour
+				// ----- --------- -------------
+				//  off     off    never reset
+				//  on      off    reset on instrument without portamento
+				//  off     on     reset on instrument with portamento
+				//  on      on     always reset
+				// Test case: ins-xx.it, ins-ox.it, ins-oc.it, ins-xc.it, ResetEnvNoteOffOldFx.it, ResetEnvNoteOffOldFx2.it, noteoff3.it
+				if(GetNumInstruments() && m_playBehaviour[kITInstrWithNoteOffOldEffects]
+				   && instr && !ModCommand::IsNote(note))
 				{
-					m_opl->Patch(nChn, chn.pModSample->adlib);
-				}
-
-				// IT compatibility: Keep new instrument number for next instrument-less note even if sample playback is stopped
-				// Test case: StoppedInstrSwap.it
-				if(GetType() == MOD_TYPE_MOD)
-				{
-					// Test case: PortaSwapPT.mod
-					if(!bPorta || !m_playBehaviour[kMODSampleSwap]) chn.nNewIns = 0;
-				} else
-				{
-					if(!m_playBehaviour[kITInstrWithNoteOff] || ModCommand::IsNote(note)) chn.nNewIns = 0;
-				}
-
-				if(m_playBehaviour[kITPortamentoSwapResetsPos])
-				{
-					// Test cases: PortaInsNum.it, PortaSample.it
-					if(ModCommand::IsNote(note) && oldSample != chn.pModSample)
+					if((bPorta && m_SongFlags[SONG_ITCOMPATGXX])
+					   || (!bPorta && m_SongFlags[SONG_ITOLDEFFECTS]))
 					{
-						//const bool newInstrument = oldInstrument != chn.pModInstrument && chn.pModInstrument->Keyboard[chn.nNewNote - NOTE_MIN] != 0;
+						chn.ResetEnvelopes();
+						chn.dwFlags.set(CHN_FASTVOLRAMP);
+						chn.nFadeOutVol = 65536;
+					}
+				}
+
+				if(retrigEnv)  //Case: instrument with no note data.
+				{
+					//IT compatibility: Instrument with no note.
+					if(m_playBehaviour[kITInstrWithoutNote] || GetType() == MOD_TYPE_PLM)
+					{
+						// IT compatibility: Completely retrigger note after sample end to also reset portamento.
+						// Test case: PortaResetAfterRetrigger.it
+						bool triggerAfterSmpEnd = m_playBehaviour[kITMultiSampleInstrumentNumber] && !chn.IsSamplePlaying();
+						if(GetNumInstruments())
+						{
+							// Instrument mode
+							if(instr <= GetNumInstruments() && (chn.pModInstrument != Instruments[instr] || triggerAfterSmpEnd))
+								note = chn.nNote;
+						} else
+						{
+							// Sample mode
+							if(instr < MAX_SAMPLES && (chn.pModSample != &Samples[instr] || triggerAfterSmpEnd))
+								note = chn.nNote;
+						}
+					}
+
+					if(GetNumInstruments() && (GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2 | MOD_TYPE_MED)))
+					{
+						chn.ResetEnvelopes();
+						chn.dwFlags.set(CHN_FASTVOLRAMP);
+						chn.dwFlags.reset(CHN_NOTEFADE);
+						chn.nAutoVibDepth = 0;
+						chn.nAutoVibPos = 0;
+						chn.nFadeOutVol = 65536;
+						// FT2 Compatibility: Reset key-off status with instrument number
+						// Test case: NoteOffInstrChange.xm
+						if(m_playBehaviour[kFT2NoteOffFlags])
+							chn.dwFlags.reset(CHN_KEYOFF);
+					}
+					if(!keepInstr) instr = 0;
+				}
+
+				// Note Cut/Off/Fade => ignore instrument
+				if(note >= NOTE_MIN_SPECIAL)
+				{
+					// IT compatibility: Default volume of sample is recalled if instrument number is next to a note-off.
+					// Test case: NoteOffInstr.it, noteoff2.it
+					if(m_playBehaviour[kITInstrWithNoteOff] && instr)
+					{
+						const SAMPLEINDEX smp = GetSampleIndex(chn.nLastNote, instr);
+						if(smp > 0 && !Samples[smp].uFlags[SMP_NODEFAULTVOLUME])
+							chn.nVolume = Samples[smp].nVolume;
+					}
+					// IT compatibility: Note-off with instrument number + Old Effects retriggers envelopes.
+					// Test case: ResetEnvNoteOffOldFx.it
+					if(!m_playBehaviour[kITInstrWithNoteOffOldEffects] || !m_SongFlags[SONG_ITOLDEFFECTS])
+						instr = 0;
+				}
+
+				const auto previousNewNote = chn.nNewNote;
+				if(ModCommand::IsNote(note))
+				{
+					chn.nNewNote = chn.nLastNote = note;
+
+					// New Note Action ?
+					if(!bPorta)
+					{
+						CheckNNA(nChn, instr, note, false);
+					}
+
+					chn.RestorePanAndFilter();
+				}
+
+				// Instrument Change ?
+				if(instr)
+				{
+					const ModSample *oldSample = chn.pModSample;
+					//const ModInstrument *oldInstrument = chn.pModInstrument;
+
+					InstrumentChange(chn, instr, bPorta, true);
+
+					if(!chn.dwFlags[CHN_MUTE | CHN_SYNCMUTE] && chn.pModSample != nullptr && chn.pModSample->uFlags[CHN_ADLIB] && m_opl)
+					{
+						m_opl->Patch(nChn, chn.pModSample->adlib);
+					}
+
+					// IT compatibility: Keep new instrument number for next instrument-less note even if sample playback is stopped
+					// Test case: StoppedInstrSwap.it
+					if(GetType() == MOD_TYPE_MOD)
+					{
+						// Test case: PortaSwapPT.mod
+						if(!bPorta || !m_playBehaviour[kMODSampleSwap]) chn.nNewIns = 0;
+					} else
+					{
+						if(!m_playBehaviour[kITInstrWithNoteOff] || ModCommand::IsNote(note)) chn.nNewIns = 0;
+					}
+
+					if(m_playBehaviour[kITPortamentoSwapResetsPos])
+					{
+						// Test cases: PortaInsNum.it, PortaSample.it
+						if(ModCommand::IsNote(note) && oldSample != chn.pModSample)
+						{
+							//const bool newInstrument = oldInstrument != chn.pModInstrument && chn.pModInstrument->Keyboard[chn.nNewNote - NOTE_MIN] != 0;
+							chn.position.Set(0);
+						}
+					} else if((GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) && oldSample != chn.pModSample && ModCommand::IsNote(note))
+					{
+						// Special IT case: portamento+note causes sample change -> ignore portamento
+						bPorta = false;
+					} else if(m_playBehaviour[kST3SampleSwap] && oldSample != chn.pModSample && (bPorta || !ModCommand::IsNote(note)) && chn.position.GetUInt() > chn.nLength)
+					{
+						// ST3 with SoundBlaster does sample swapping and continues playing the new sample where the old sample was stopped.
+						// If the new sample is shorter than that, it is stopped, even if it could be looped.
+						// This also applies to portamento between different samples.
+						// Test case: SampleSwap.s3m
+						chn.nLength = 0;
+					} else if(m_playBehaviour[kMODSampleSwap] && !chn.IsSamplePlaying())
+					{
+						// If channel was paused and is resurrected by a lone instrument number, reset the sample position.
+						// Test case: PTSwapEmpty.mod
 						chn.position.Set(0);
 					}
-				} else if((GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) && oldSample != chn.pModSample && ModCommand::IsNote(note))
-				{
-					// Special IT case: portamento+note causes sample change -> ignore portamento
-					bPorta = false;
-				} else if(m_playBehaviour[kST3SampleSwap] && oldSample != chn.pModSample && (bPorta || !ModCommand::IsNote(note)) && chn.position.GetUInt() > chn.nLength)
-				{
-					// ST3 with SoundBlaster does sample swapping and continues playing the new sample where the old sample was stopped.
-					// If the new sample is shorter than that, it is stopped, even if it could be looped.
-					// This also applies to portamento between different samples.
-					// Test case: SampleSwap.s3m
-					chn.nLength = 0;
-				} else if(m_playBehaviour[kMODSampleSwap] && !chn.IsSamplePlaying())
-				{
-					// If channel was paused and is resurrected by a lone instrument number, reset the sample position.
-					// Test case: PTSwapEmpty.mod
-					chn.position.Set(0);
 				}
-			}
-			// New Note ?
-			if (note != NOTE_NONE)
-			{
-				const bool instrChange = (!instr) && (chn.nNewIns) && ModCommand::IsNote(note);
-				if(instrChange)
+				// New Note ?
+				if(note != NOTE_NONE)
 				{
-					// If we change to a new instrument, we need to do so based on whatever previous note would have played
-					// - so that we trigger the correct sample in a multisampled instrument (based on the previous note, not the new note).
-					// Test case: InitialNoteMemoryInstrMode.it
-					if(m_playBehaviour[kITEmptyNoteMapSlotIgnoreCell] && ModCommand::IsNote(previousNewNote))
-						chn.nNewNote = previousNewNote;
+					const bool instrChange = (!instr) && (chn.nNewIns) && ModCommand::IsNote(note);
+					if(instrChange)
+					{
+						// If we change to a new instrument, we need to do so based on whatever previous note would have played
+						// - so that we trigger the correct sample in a multisampled instrument (based on the previous note, not the new note).
+						// Test case: InitialNoteMemoryInstrMode.it
+						if(m_playBehaviour[kITEmptyNoteMapSlotIgnoreCell] && ModCommand::IsNote(previousNewNote))
+							chn.nNewNote = previousNewNote;
 
-					InstrumentChange(chn, chn.nNewIns, bPorta, chn.pModSample == nullptr && chn.pModInstrument == nullptr, !(GetType() & (MOD_TYPE_XM|MOD_TYPE_MT2)));
-					chn.nNewNote = note;
-					chn.nNewIns = 0;
-				}
-				if(!chn.dwFlags[CHN_MUTE | CHN_SYNCMUTE] && chn.pModSample != nullptr && chn.pModSample->uFlags[CHN_ADLIB] && m_opl && (instrChange || !m_opl->IsActive(nChn)))
-				{
-					m_opl->Patch(nChn, chn.pModSample->adlib);
-				}
+						InstrumentChange(chn, chn.nNewIns, bPorta, chn.pModSample == nullptr && chn.pModInstrument == nullptr, !(GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2)));
+						chn.nNewNote = note;
+						chn.nNewIns = 0;
+					}
+					if(!chn.dwFlags[CHN_MUTE | CHN_SYNCMUTE] && chn.pModSample != nullptr && chn.pModSample->uFlags[CHN_ADLIB] && m_opl && (instrChange || !m_opl->IsActive(nChn)))
+					{
+						m_opl->Patch(nChn, chn.pModSample->adlib);
+					}
 
-				NoteChange(chn, note, bPorta, !(GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2)), false, nChn);
-				if(continueNote)
-					chn.nPeriod = chn.nPortamentoDest;
-				if(ModCommand::IsNote(note))
-					HandleDigiSamplePlayDirection(m_PlayState, nChn);
-				if ((bPorta) && (GetType() & (MOD_TYPE_XM|MOD_TYPE_MT2)) && (instr))
+					NoteChange(chn, note, bPorta, !(GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2)), false, nChn);
+					if(continueNote)
+						chn.nPeriod = chn.nPortamentoDest;
+					if(ModCommand::IsNote(note))
+						HandleDigiSamplePlayDirection(m_PlayState, nChn);
+					if((bPorta) && (GetType() & (MOD_TYPE_XM | MOD_TYPE_MT2)) && (instr))
+					{
+						chn.dwFlags.set(CHN_FASTVOLRAMP);
+						chn.ResetEnvelopes();
+						chn.nAutoVibDepth = 0;
+						chn.nAutoVibPos = 0;
+					}
+					if(chn.dwFlags[CHN_ADLIB] && m_opl
+					   && ((note == NOTE_NOTECUT || note == NOTE_KEYOFF) || (note == NOTE_FADE && !m_playBehaviour[kOPLFlexibleNoteOff])))
+					{
+						if(m_playBehaviour[kOPLNoteStopWith0Hz])
+							m_opl->Frequency(nChn, 0, true, false);
+						m_opl->NoteOff(nChn);
+					}
+				}
+				// Tick-0 only volume commands
+				if(volcmd == VOLCMD_VOLUME)
 				{
+					if(vol > 64) vol = 64;
+					chn.nVolume = vol << 2;
 					chn.dwFlags.set(CHN_FASTVOLRAMP);
-					chn.ResetEnvelopes();
-					chn.nAutoVibDepth = 0;
-					chn.nAutoVibPos = 0;
-				}
-				if(chn.dwFlags[CHN_ADLIB] && m_opl
-					&& ((note == NOTE_NOTECUT || note == NOTE_KEYOFF) || (note == NOTE_FADE && !m_playBehaviour[kOPLFlexibleNoteOff])))
+				} else if(volcmd == VOLCMD_PANNING)
 				{
-					if(m_playBehaviour[kOPLNoteStopWith0Hz])
-						m_opl->Frequency(nChn, 0, true, false);
-					m_opl->NoteOff(nChn);
+					Panning(chn, vol, Pan6bit);
 				}
-			}
-			// Tick-0 only volume commands
-			if (volcmd == VOLCMD_VOLUME)
-			{
-				if (vol > 64) vol = 64;
-				chn.nVolume = vol << 2;
-				chn.dwFlags.set(CHN_FASTVOLRAMP);
-			} else
-			if (volcmd == VOLCMD_PANNING)
-			{
-				Panning(chn, vol, Pan6bit);
-			}
 
 #ifndef NO_PLUGINS
-			if (m_nInstruments) ProcessMidiOut(nChn);
-#endif // NO_PLUGINS
-		}
+				if(m_nInstruments) ProcessMidiOut(nChn);
+#endif  // NO_PLUGINS
+			}
+			//Poperino
+			if(m_playBehaviour[kST3NoMutedChannels] && ChnSettings[nChn].dwFlags[CHN_MUTE])	// not even effects are processed on muted S3M channels
+				continue;
 
-		if(m_playBehaviour[kST3NoMutedChannels] && ChnSettings[nChn].dwFlags[CHN_MUTE])	// not even effects are processed on muted S3M channels
-			continue;
+			ResetAutoSlides(chn);
 
-		ResetAutoSlides(chn);
-
-		// Volume Column Effect (except volume & panning)
-		/*	A few notes, paraphrased from ITTECH.TXT by Storlek (creator of schismtracker):
-			Ex/Fx/Gx are shared with Exx/Fxx/Gxx; Ex/Fx are 4x the 'normal' slide value
-			Gx is linked with Ex/Fx if Compat Gxx is off, just like Gxx is with Exx/Fxx
-			Gx values: 1, 4, 8, 16, 32, 64, 96, 128, 255
-			Ax/Bx/Cx/Dx values are used directly (i.e. D9 == D09), and are NOT shared with Dxx
-			(value is stored into nOldVolParam and used by A0/B0/C0/D0)
-			Hx uses the same value as Hxx and Uxx, and affects the *depth*
-			so... hxx = (hx | (oldhxx & 0xf0))  ???
-			TODO is this done correctly?
-		*/
-		bool doVolumeColumn = m_PlayState.m_nTickCount >= nStartTick;
-		// FT2 compatibility: If there's a note delay, volume column effects are NOT executed
-		// on the first tick and, if there's an instrument number, on the delayed tick.
-		// Test case: VolColDelay.xm, PortaDelay.xm
-		if(m_playBehaviour[kFT2VolColDelay] && nStartTick != 0)
-		{
-			doVolumeColumn = m_PlayState.m_nTickCount != 0 && (m_PlayState.m_nTickCount != nStartTick || (chn.rowCommand.instr == 0 && volcmd != VOLCMD_TONEPORTAMENTO));
-		}
-		if(volcmd > VOLCMD_PANNING && doVolumeColumn)
-		{
-			if(volcmd == VOLCMD_TONEPORTAMENTO)
+			// Volume Column Effect (except volume & panning)
+			/*	A few notes, paraphrased from ITTECH.TXT by Storlek (creator of schismtracker):
+				Ex/Fx/Gx are shared with Exx/Fxx/Gxx; Ex/Fx are 4x the 'normal' slide value
+				Gx is linked with Ex/Fx if Compat Gxx is off, just like Gxx is with Exx/Fxx
+				Gx values: 1, 4, 8, 16, 32, 64, 96, 128, 255
+				Ax/Bx/Cx/Dx values are used directly (i.e. D9 == D09), and are NOT shared with Dxx
+				(value is stored into nOldVolParam and used by A0/B0/C0/D0)
+				Hx uses the same value as Hxx and Uxx, and affects the *depth*
+				so... hxx = (hx | (oldhxx & 0xf0))  ???
+				TODO is this done correctly?
+			*/
+			bool doVolumeColumn = m_PlayState.m_nTickCount >= nStartTick;
+			// FT2 compatibility: If there's a note delay, volume column effects are NOT executed
+			// on the first tick and, if there's an instrument number, on the delayed tick.
+			// Test case: VolColDelay.xm, PortaDelay.xm
+			if(m_playBehaviour[kFT2VolColDelay] && nStartTick != 0)
 			{
-				const auto [porta, clearEffectCommand] = GetVolCmdTonePorta(chn.rowCommand, nStartTick);
-				if(clearEffectCommand)
-					cmd = CMD_NONE;
-
-				TonePortamento(nChn, porta);
-			} else
+				doVolumeColumn = m_PlayState.m_nTickCount != 0 && (m_PlayState.m_nTickCount != nStartTick || (chn.rowCommand.instr == 0 && volcmd != VOLCMD_TONEPORTAMENTO));
+			}
+			if(volcmd > VOLCMD_PANNING && doVolumeColumn)
 			{
-				// FT2 Compatibility: FT2 ignores some volume commands with parameter = 0.
-				if(m_playBehaviour[kFT2VolColMemory] && vol == 0)
+				if(volcmd == VOLCMD_TONEPORTAMENTO)
 				{
+					const auto [porta, clearEffectCommand] = GetVolCmdTonePorta(chn.rowCommand, nStartTick);
+					if(clearEffectCommand)
+						cmd = CMD_NONE;
+
+					TonePortamento(nChn, porta);
+				} else
+				{
+					// FT2 Compatibility: FT2 ignores some volume commands with parameter = 0.
+					if(m_playBehaviour[kFT2VolColMemory] && vol == 0)
+					{
+						switch(volcmd)
+						{
+						case VOLCMD_VOLUME:
+						case VOLCMD_PANNING:
+						case VOLCMD_VIBRATODEPTH:
+							break;
+						case VOLCMD_PANSLIDELEFT:
+							// FT2 Compatibility: Pan slide left with zero parameter causes panning to be set to full left on every non-row tick.
+							// Test case: PanSlideZero.xm
+							if(!m_PlayState.m_flags[SONG_FIRSTTICK])
+							{
+								chn.nPan = 0;
+							}
+							[[fallthrough]];
+						default:
+							// no memory here.
+							volcmd = VOLCMD_NONE;
+						}
+
+					} else if(!m_playBehaviour[kITVolColMemory])
+					{
+						// IT Compatibility: Effects in the volume column don't have an unified memory.
+						// Test case: VolColMemory.it
+						if(vol) chn.nOldVolParam = static_cast<ModCommand::PARAM>(vol); else vol = chn.nOldVolParam;
+					}
+
 					switch(volcmd)
 					{
-					case VOLCMD_VOLUME:
-					case VOLCMD_PANNING:
-					case VOLCMD_VIBRATODEPTH:
+					case VOLCMD_VOLSLIDEUP:
+					case VOLCMD_VOLSLIDEDOWN:
+						// IT Compatibility: Volume column volume slides have their own memory
+						// Test case: VolColMemory.it
+						if(vol == 0 && m_playBehaviour[kITVolColMemory])
+						{
+							vol = chn.nOldVolParam;
+							if(vol == 0)
+								break;
+						} else
+						{
+							chn.nOldVolParam = static_cast<ModCommand::PARAM>(vol);
+						}
+						VolumeSlide(chn, static_cast<ModCommand::PARAM>(volcmd == VOLCMD_VOLSLIDEUP ? (vol << 4) : vol));
 						break;
+
+					case VOLCMD_FINEVOLUP:
+						// IT Compatibility: Fine volume slides in the volume column are only executed on the first tick, not on multiples of the first tick in case of pattern delay
+						// Test case: FineVolColSlide.it
+						if(m_PlayState.m_nTickCount == nStartTick || !m_playBehaviour[kITVolColMemory])
+						{
+							// IT Compatibility: Volume column volume slides have their own memory
+							// Test case: VolColMemory.it
+							FineVolumeUp(chn, static_cast<ModCommand::PARAM>(vol), m_playBehaviour[kITVolColMemory]);
+						}
+						break;
+
+					case VOLCMD_FINEVOLDOWN:
+						// IT Compatibility: Fine volume slides in the volume column are only executed on the first tick, not on multiples of the first tick in case of pattern delay
+						// Test case: FineVolColSlide.it
+						if(m_PlayState.m_nTickCount == nStartTick || !m_playBehaviour[kITVolColMemory])
+						{
+							// IT Compatibility: Volume column volume slides have their own memory
+							// Test case: VolColMemory.it
+							FineVolumeDown(chn, static_cast<ModCommand::PARAM>(vol), m_playBehaviour[kITVolColMemory]);
+						}
+						break;
+
+					case VOLCMD_VIBRATOSPEED:
+						// FT2 does not automatically enable vibrato with the "set vibrato speed" command
+						if(m_playBehaviour[kFT2VolColVibrato])
+							chn.nVibratoSpeed = vol & 0x0F;
+						else
+							Vibrato(chn, vol << 4);
+						break;
+
+					case VOLCMD_VIBRATODEPTH:
+						Vibrato(chn, vol);
+						break;
+
 					case VOLCMD_PANSLIDELEFT:
-						// FT2 Compatibility: Pan slide left with zero parameter causes panning to be set to full left on every non-row tick.
-						// Test case: PanSlideZero.xm
-						if(!m_PlayState.m_flags[SONG_FIRSTTICK])
+						PanningSlide(chn, static_cast<ModCommand::PARAM>(vol), !m_playBehaviour[kFT2VolColMemory]);
+						break;
+
+					case VOLCMD_PANSLIDERIGHT:
+						PanningSlide(chn, static_cast<ModCommand::PARAM>(vol << 4), !m_playBehaviour[kFT2VolColMemory]);
+						break;
+
+					case VOLCMD_PORTAUP:
+						// IT compatibility (one of the first testcases - link effect memory)
+						PortamentoUp(nChn, static_cast<ModCommand::PARAM>(vol << 2), m_playBehaviour[kITVolColFinePortamento]);
+						break;
+
+					case VOLCMD_PORTADOWN:
+						// IT compatibility (one of the first testcases - link effect memory)
+						PortamentoDown(nChn, static_cast<ModCommand::PARAM>(vol << 2), m_playBehaviour[kITVolColFinePortamento]);
+						break;
+
+					case VOLCMD_OFFSET:
+						if(triggerNote && chn.pModSample && vol <= std::size(chn.pModSample->cues))
 						{
-							chn.nPan = 0;
+							SmpLength offset;
+							if(vol == 0)
+								offset = chn.oldOffset;
+							else
+								offset = chn.oldOffset = chn.pModSample->cues[vol - 1];
+							SampleOffset(chn, offset);
 						}
-						[[fallthrough]];
+						break;
+
+					case VOLCMD_PLAYCONTROL:
+						if(vol <= 1)
+							chn.isPaused = (vol == 0);
+						break;
+
 					default:
-						// no memory here.
-						volcmd = VOLCMD_NONE;
+						break;
 					}
-
-				} else if(!m_playBehaviour[kITVolColMemory])
-				{
-					// IT Compatibility: Effects in the volume column don't have an unified memory.
-					// Test case: VolColMemory.it
-					if(vol) chn.nOldVolParam = static_cast<ModCommand::PARAM>(vol); else vol = chn.nOldVolParam;
-				}
-
-				switch(volcmd)
-				{
-				case VOLCMD_VOLSLIDEUP:
-				case VOLCMD_VOLSLIDEDOWN:
-					// IT Compatibility: Volume column volume slides have their own memory
-					// Test case: VolColMemory.it
-					if(vol == 0 && m_playBehaviour[kITVolColMemory])
-					{
-						vol = chn.nOldVolParam;
-						if(vol == 0)
-							break;
-					} else
-					{
-						chn.nOldVolParam = static_cast<ModCommand::PARAM>(vol);
-					}
-					VolumeSlide(chn, static_cast<ModCommand::PARAM>(volcmd == VOLCMD_VOLSLIDEUP ? (vol << 4) : vol));
-					break;
-
-				case VOLCMD_FINEVOLUP:
-					// IT Compatibility: Fine volume slides in the volume column are only executed on the first tick, not on multiples of the first tick in case of pattern delay
-					// Test case: FineVolColSlide.it
-					if(m_PlayState.m_nTickCount == nStartTick || !m_playBehaviour[kITVolColMemory])
-					{
-						// IT Compatibility: Volume column volume slides have their own memory
-						// Test case: VolColMemory.it
-						FineVolumeUp(chn, static_cast<ModCommand::PARAM>(vol), m_playBehaviour[kITVolColMemory]);
-					}
-					break;
-
-				case VOLCMD_FINEVOLDOWN:
-					// IT Compatibility: Fine volume slides in the volume column are only executed on the first tick, not on multiples of the first tick in case of pattern delay
-					// Test case: FineVolColSlide.it
-					if(m_PlayState.m_nTickCount == nStartTick || !m_playBehaviour[kITVolColMemory])
-					{
-						// IT Compatibility: Volume column volume slides have their own memory
-						// Test case: VolColMemory.it
-						FineVolumeDown(chn, static_cast<ModCommand::PARAM>(vol), m_playBehaviour[kITVolColMemory]);
-					}
-					break;
-
-				case VOLCMD_VIBRATOSPEED:
-					// FT2 does not automatically enable vibrato with the "set vibrato speed" command
-					if(m_playBehaviour[kFT2VolColVibrato])
-						chn.nVibratoSpeed = vol & 0x0F;
-					else
-						Vibrato(chn, vol << 4);
-					break;
-
-				case VOLCMD_VIBRATODEPTH:
-					Vibrato(chn, vol);
-					break;
-
-				case VOLCMD_PANSLIDELEFT:
-					PanningSlide(chn, static_cast<ModCommand::PARAM>(vol), !m_playBehaviour[kFT2VolColMemory]);
-					break;
-
-				case VOLCMD_PANSLIDERIGHT:
-					PanningSlide(chn, static_cast<ModCommand::PARAM>(vol << 4), !m_playBehaviour[kFT2VolColMemory]);
-					break;
-
-				case VOLCMD_PORTAUP:
-					// IT compatibility (one of the first testcases - link effect memory)
-					PortamentoUp(nChn, static_cast<ModCommand::PARAM>(vol << 2), m_playBehaviour[kITVolColFinePortamento]);
-					break;
-
-				case VOLCMD_PORTADOWN:
-					// IT compatibility (one of the first testcases - link effect memory)
-					PortamentoDown(nChn, static_cast<ModCommand::PARAM>(vol << 2), m_playBehaviour[kITVolColFinePortamento]);
-					break;
-
-				case VOLCMD_OFFSET:
-					if(triggerNote && chn.pModSample && vol <= std::size(chn.pModSample->cues))
-					{
-						SmpLength offset;
-						if(vol == 0)
-							offset = chn.oldOffset;
-						else
-							offset = chn.oldOffset = chn.pModSample->cues[vol - 1];
-						SampleOffset(chn, offset);
-					}
-					break;
-
-				case VOLCMD_PLAYCONTROL:
-					if(vol <= 1)
-						chn.isPaused = (vol == 0);
-					break;
-
-				default:
-					break;
 				}
 			}
-		}
 
-		// Effects
-		if(cmd != CMD_NONE) switch (cmd)
-		{
-		// Set Volume
-		case CMD_VOLUME:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK])
+			// Effects
+			if(cmd != CMD_NONE) switch (cmd)
 			{
-				chn.nVolume = (param < 64) ? param * 4 : 256;
-				chn.dwFlags.set(CHN_FASTVOLRAMP);
-			}
-			break;
-		case CMD_VOLUME8:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK])
-			{
-				chn.nVolume = param;
-				chn.dwFlags.set(CHN_FASTVOLRAMP);
-			}
-			break;
-
-		// Portamento Up
-		case CMD_PORTAMENTOUP:
-			if(param || !(GetType() & MOD_TYPE_MOD))
-				PortamentoUp(nChn, static_cast<ModCommand::PARAM>(param), false);
-			break;
-
-		// Portamento Down
-		case CMD_PORTAMENTODOWN:
-			if(param || !(GetType() & MOD_TYPE_MOD))
-				PortamentoDown(nChn, static_cast<ModCommand::PARAM>(param), false);
-			break;
-
-		// Auto portamentos
-		case CMD_AUTO_PORTAUP:
-			chn.autoSlide.SetActive(AutoSlideCommand::PortamentoUp, param != 0);
-			chn.nOldPortaUp = static_cast<uint8>(param);
-			break;
-		case CMD_AUTO_PORTADOWN:
-			chn.autoSlide.SetActive(AutoSlideCommand::PortamentoDown, param != 0);
-			chn.nOldPortaDown = static_cast<uint8>(param);
-			break;
-		case CMD_AUTO_PORTAUP_FINE:
-			chn.autoSlide.SetActive(AutoSlideCommand::FinePortamentoUp, param != 0);
-			chn.nOldFinePortaUpDown = static_cast<uint8>(param);
-			break;
-		case CMD_AUTO_PORTADOWN_FINE:
-			chn.autoSlide.SetActive(AutoSlideCommand::FinePortamentoDown, param != 0);
-			chn.nOldFinePortaUpDown = static_cast<uint8>(param);
-			break;
-
-		// Volume Slide
-		case CMD_VOLUMESLIDE:
-			if (param || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
-			break;
-
-		// Tone-Portamento
-		case CMD_TONEPORTAMENTO:
-			TonePortamento(nChn, static_cast<uint16>(param));
-			break;
-
-		// Tone-Portamento + Volume Slide
-		case CMD_TONEPORTAVOL:
-			if ((param) || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
-			TonePortamento(nChn, 0);
-			break;
-
-		// Vibrato
-		case CMD_VIBRATO:
-			Vibrato(chn, param);
-			break;
-
-		// Vibrato + Volume Slide
-		case CMD_VIBRATOVOL:
-			if ((param) || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
-			Vibrato(chn, 0);
-			break;
-
-		// Set Speed
-		case CMD_SPEED:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK])
-				SetSpeed(m_PlayState, param);
-			break;
-
-		// Set Tempo
-		case CMD_TEMPO:
-			if(m_playBehaviour[kMODVBlankTiming])
-			{
-				// ProTracker MODs with VBlank timing: All Fxx parameters set the tick count.
-				if(m_PlayState.m_flags[SONG_FIRSTTICK] && param != 0) SetSpeed(m_PlayState, param);
-				break;
-			}
-			{
-				param = CalculateXParam(m_PlayState.m_nPattern, m_PlayState.m_nRow, nChn);
-				if (GetType() & (MOD_TYPE_S3M|MOD_TYPE_IT|MOD_TYPE_MPT))
-				{
-					if (param) chn.nOldTempo = static_cast<ModCommand::PARAM>(param); else param = chn.nOldTempo;
-				}
-				TEMPO t(param, 0);
-				LimitMax(t, GetModSpecifications().GetTempoMax());
-				SetTempo(t);
-			}
-			break;
-
-		// Set Offset
-		case CMD_OFFSET:
-			if(triggerNote)
-			{
-				// FT2 compatibility: Portamento + Offset = Ignore offset
-				// Test case: porta-offset.xm
-				if(bPorta && GetType() == MOD_TYPE_XM)
-					break;
-
-				ProcessSampleOffset(chn, nChn, m_PlayState);
-			}
-			break;
-
-		// Disorder Tracker 2 percentage offset
-		case CMD_OFFSETPERCENTAGE:
-			if(triggerNote)
-			{
-				SampleOffset(chn, Util::muldiv_unsigned(chn.nLength, param, 256));
-			}
-			break;
-
-		// Arpeggio
-		case CMD_ARPEGGIO:
-			// IT compatibility 01. Don't ignore Arpeggio if no note is playing (also valid for ST3)
-			if(m_PlayState.m_nTickCount) break;
-			if((!chn.nPeriod || !chn.nNote)
-				&& (chn.pModInstrument == nullptr || !chn.pModInstrument->HasValidMIDIChannel())	// Plugin arpeggio
-				&& !m_playBehaviour[kITArpeggio] && (GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT))) break;
-			if (!param && (GetType() & (MOD_TYPE_XM | MOD_TYPE_MOD))) break;	// Only important when editing MOD/XM files (000 effects are removed when loading files where this means "no effect")
-			chn.nCommand = CMD_ARPEGGIO;
-			if (param) chn.nArpeggio = static_cast<ModCommand::PARAM>(param);
-			break;
-
-		// Retrig
-		case CMD_RETRIG:
-			if (GetType() & (MOD_TYPE_XM|MOD_TYPE_MT2))
-			{
-				if (!(param & 0xF0)) param |= chn.nRetrigParam & 0xF0;
-				if (!(param & 0x0F)) param |= chn.nRetrigParam & 0x0F;
-				param |= 0x100; // increment retrig count on first row
-			}
-			// IT compatibility 15. Retrigger
-			if(m_playBehaviour[kITRetrigger])
-			{
-				if (param) chn.nRetrigParam = static_cast<uint8>(param & 0xFF);
-				RetrigNote(nChn, chn.nRetrigParam, (volcmd == VOLCMD_OFFSET) ? vol + 1 : 0);
-			} else
-			{
-				// XM Retrig
-				if (param) chn.nRetrigParam = static_cast<uint8>(param & 0xFF); else param = chn.nRetrigParam;
-				RetrigNote(nChn, param, (volcmd == VOLCMD_OFFSET) ? vol + 1 : 0);
-			}
-			break;
-
-		// Tremor
-		case CMD_TREMOR:
-			if(!m_PlayState.m_flags[SONG_FIRSTTICK])
-			{
-				break;
-			}
-
-			// IT compatibility 12. / 13. Tremor (using modified DUMB's Tremor logic here because of old effects - http://dumb.sf.net/)
-			if(m_playBehaviour[kITTremor])
-			{
-				if(param && !m_SongFlags[SONG_ITOLDEFFECTS])
-				{
-					// Old effects have different length interpretation (+1 for both on and off)
-					if(param & 0xF0)
-						param -= 0x10;
-					if(param & 0x0F)
-						param -= 0x01;
-					chn.nTremorParam = static_cast<ModCommand::PARAM>(param);
-				}
-				chn.nTremorCount |= 0x80; // set on/off flag
-			} else if(m_playBehaviour[kFT2Tremor])
-			{
-				// XM Tremor. Logic is being processed in sndmix.cpp
-				chn.nTremorCount |= 0x80; // set on/off flag
-			}
-
-			chn.nCommand = CMD_TREMOR;
-			if(param)
-				chn.nTremorParam = static_cast<ModCommand::PARAM>(param);
-
-			break;
-
-		// Set Global Volume
-		case CMD_GLOBALVOLUME:
-			// IT compatibility: Only apply global volume on first tick (and multiples)
-			// Test case: GlobalVolFirstTick.it
-			if(!m_PlayState.m_flags[SONG_FIRSTTICK])
-				break;
-			// ST3 applies global volume on tick 1 and does other weird things, but we won't emulate this for now.
-// 			if(((GetType() & MOD_TYPE_S3M) && m_nTickCount != 1)
-// 				|| (!(GetType() & MOD_TYPE_S3M) && !m_PlayState.m_flags[SONG_FIRSTTICK]))
-// 			{
-// 				break;
-// 			}
-
-			// FT2 compatibility: On channels that are "left" of the global volume command, the new global volume is not applied
-			// until the second tick of the row. Since we apply global volume on the mix buffer rather than note volumes, this
-			// cannot be fixed for now.
-			// Test case: GlobalVolume.xm
-// 			if(IsCompatibleMode(TRK_FASTTRACKER2) && m_PlayState.m_flags[SONG_FIRSTTICK] && m_nMusicSpeed > 1)
-// 			{
-// 				break;
-// 			}
-
-			if (!(GetType() & GLOBALVOL_7BIT_FORMATS)) param *= 2;
-
-			// IT compatibility 16. ST3 and IT ignore out-of-range values.
-			// Test case: globalvol-invalid.it
-			if(param <= 128)
-			{
-				m_PlayState.m_nGlobalVolume = param * 2;
-			} else if(!(GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_S3M)))
-			{
-				m_PlayState.m_nGlobalVolume = 256;
-			}
-			m_PlayState.Chn[m_playBehaviour[kPerChannelGlobalVolSlide] ? nChn : 0].autoSlide.SetActive(AutoSlideCommand::GlobalVolumeSlide, false);
-			break;
-
-		// Global Volume Slide
-		case CMD_GLOBALVOLSLIDE:
-			//IT compatibility 16. Saving last global volume slide param per channel (FT2/IT)
-			GlobalVolSlide(m_PlayState, static_cast<ModCommand::PARAM>(param), m_playBehaviour[kPerChannelGlobalVolSlide] ? nChn : 0);
-			break;
-
-		// Set 8-bit Panning
-		case CMD_PANNING8:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK])
-			{
-				Panning(chn, param, Pan8bit);
-			}
-			break;
-
-		// Panning Slide
-		case CMD_PANNINGSLIDE:
-			PanningSlide(chn, static_cast<ModCommand::PARAM>(param));
-			break;
-
-		// Tremolo
-		case CMD_TREMOLO:
-			Tremolo(chn, param);
-			break;
-
-		// Fine Vibrato
-		case CMD_FINEVIBRATO:
-			FineVibrato(chn, param);
-			break;
-
-		// MOD/XM Exx Extended Commands
-		case CMD_MODCMDEX:
-			ExtendedMODCommands(nChn, static_cast<ModCommand::PARAM>(param));
-			break;
-
-		// S3M/IT Sxx Extended Commands
-		case CMD_S3MCMDEX:
-			ExtendedS3MCommands(nChn, static_cast<ModCommand::PARAM>(param));
-			break;
-
-		// Key Off
-		case CMD_KEYOFF:
-			// This is how Key Off is supposed to sound... (in FT2 at least)
-			if(m_playBehaviour[kFT2KeyOff])
-			{
-				if (m_PlayState.m_nTickCount == param)
-				{
-					// XM: Key-Off + Sample == Note Cut
-					if(chn.pModInstrument == nullptr || !chn.pModInstrument->VolEnv.dwFlags[ENV_ENABLED])
-					{
-						if(param == 0 && (chn.rowCommand.instr || chn.rowCommand.volcmd != VOLCMD_NONE)) // FT2 is weird....
-						{
-							chn.dwFlags.set(CHN_NOTEFADE);
-						}
-						else
-						{
-							chn.dwFlags.set(CHN_FASTVOLRAMP);
-							chn.nVolume = 0;
-						}
-					}
-					KeyOff(chn);
-				}
-			}
-			// This is how it's NOT supposed to sound...
-			else
-			{
+			// Set Volume
+			case CMD_VOLUME:
 				if(m_PlayState.m_flags[SONG_FIRSTTICK])
-					KeyOff(chn);
-			}
-			break;
-
-		// Extra-fine porta up/down
-		case CMD_XFINEPORTAUPDOWN:
-			switch(param & 0xF0)
-			{
-			case 0x10:
-				ExtraFinePortamentoUp(chn, param & 0x0F);
-				if(!m_playBehaviour[kPluginIgnoreTonePortamento])
-					MidiPortamento(nChn, 0xE0 | (param & 0x0F), true);
-				break;
-			case 0x20:
-				ExtraFinePortamentoDown(chn, param & 0x0F);
-				if(!m_playBehaviour[kPluginIgnoreTonePortamento])
-					MidiPortamento(nChn, -static_cast<int>(0xE0 | (param & 0x0F)), true);
-				break;
-			// ModPlug XM Extensions (ignore in compatible mode)
-			case 0x50:
-			case 0x60:
-			case 0x70:
-			case 0x90:
-			case 0xA0:
-				if(!m_playBehaviour[kFT2RestrictXCommand]) ExtendedS3MCommands(nChn, static_cast<ModCommand::PARAM>(param));
-				break;
-			}
-			break;
-
-		case CMD_FINETUNE:
-		case CMD_FINETUNE_SMOOTH:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK] || cmd == CMD_FINETUNE_SMOOTH)
-				SetFinetune(m_PlayState.m_nPattern, m_PlayState.m_nRow, nChn, m_PlayState, cmd == CMD_FINETUNE_SMOOTH);
-			break;
-
-		// Set Channel Global Volume
-		case CMD_CHANNELVOLUME:
-			if(!m_PlayState.m_flags[SONG_FIRSTTICK]) break;
-			if (param <= 64)
-			{
-				chn.nGlobalVol = static_cast<uint8>(param);
-				chn.dwFlags.set(CHN_FASTVOLRAMP);
-			}
-			break;
-
-		// Channel volume slide
-		case CMD_CHANNELVOLSLIDE:
-			ChannelVolSlide(chn, static_cast<ModCommand::PARAM>(param));
-			break;
-
-		// Panbrello (IT)
-		case CMD_PANBRELLO:
-			Panbrello(chn, param);
-			break;
-
-		// Set Envelope Position
-		case CMD_SETENVPOSITION:
-			if(m_PlayState.m_flags[SONG_FIRSTTICK])
-			{
-				chn.VolEnv.nEnvPosition = param;
-
-				// FT2 compatibility: FT2 only sets the position of the panning envelope if the volume envelope's sustain flag is set
-				// Test case: SetEnvPos.xm
-				if(!m_playBehaviour[kFT2SetPanEnvPos] || chn.VolEnv.flags[ENV_SUSTAIN])
 				{
-					chn.PanEnv.nEnvPosition = param;
-					chn.PitchEnv.nEnvPosition = param;
+					chn.nVolume = (param < 64) ? param * 4 : 256;
+					chn.dwFlags.set(CHN_FASTVOLRAMP);
 				}
-			}
-			break;
-
-		// MED Synth Jump (handled in InstrumentSynth) / MIDI Panning
-		case CMD_MED_SYNTH_JUMP:
-#ifndef NO_PLUGINS
-			if(chn.isFirstTick)
-			{
-				if(IMixPlugin *plugin = GetChannelInstrumentPlugin(chn); plugin != nullptr)
-					plugin->MidiCC(MIDIEvents::MIDICC_Panposition_Coarse, static_cast<uint8>(param & 0x7F), nChn);
-			}
-#endif  // NO_PLUGINS
-			break;
-
-		// Position Jump
-		case CMD_POSITIONJUMP:
-			PositionJump(m_PlayState, nChn);
-			break;
-
-		// Pattern Break
-		case CMD_PATTERNBREAK:
-			if(ROWINDEX row = PatternBreak(m_PlayState, nChn, static_cast<ModCommand::PARAM>(param)); row != ROWINDEX_INVALID)
-			{
-				m_PlayState.m_breakRow = row;
-				if(m_PlayState.m_flags[SONG_PATTERNLOOP])
+				break;
+			case CMD_VOLUME8:
+				if(m_PlayState.m_flags[SONG_FIRSTTICK])
 				{
-					//If song is set to loop and a pattern break occurs we should stay on the same pattern.
-					//Use nPosJump to force playback to "jump to this pattern" rather than move to next, as by default.
-					m_PlayState.m_posJump = m_PlayState.m_nCurrentOrder;
+					chn.nVolume = param;
+					chn.dwFlags.set(CHN_FASTVOLRAMP);
 				}
-			}
-			break;
+				break;
 
-		// IMF / PTM Note Slides
-		case CMD_NOTESLIDEUP:
-		case CMD_NOTESLIDEDOWN:
-		case CMD_NOTESLIDEUPRETRIG:
-		case CMD_NOTESLIDEDOWNRETRIG:
-			// Note that this command seems to be a bit buggy in Polytracker... Luckily, no tune seems to seriously use this
-			// (Vic uses it e.g. in Spaceman or Perfect Reason to slide effect samples, noone will notice the difference :)
-			NoteSlide(chn, param, cmd == CMD_NOTESLIDEUP || cmd == CMD_NOTESLIDEUPRETRIG, cmd == CMD_NOTESLIDEUPRETRIG || cmd == CMD_NOTESLIDEDOWNRETRIG);
-			break;
+			// Portamento Up
+			case CMD_PORTAMENTOUP:
+				if(param || !(GetType() & MOD_TYPE_MOD))
+					PortamentoUp(nChn, static_cast<ModCommand::PARAM>(param), false);
+				break;
 
-		// PTM Reverse sample + offset (executed on every tick)
-		case CMD_REVERSEOFFSET:
-			ReverseSampleOffset(chn, static_cast<ModCommand::PARAM>(param));
-			break;
+			// Portamento Down
+			case CMD_PORTAMENTODOWN:
+				if(param || !(GetType() & MOD_TYPE_MOD))
+					PortamentoDown(nChn, static_cast<ModCommand::PARAM>(param), false);
+				break;
 
-#ifndef NO_PLUGINS
-		// DBM: Toggle DSP Echo
-		case CMD_DBMECHO:
-			if(m_PlayState.m_nTickCount == 0)
-			{
-				uint32 echoType = (param >> 4), enable = (param & 0x0F);
-				if(echoType > 2 || enable > 1)
+			// Auto portamentos
+			case CMD_AUTO_PORTAUP:
+				chn.autoSlide.SetActive(AutoSlideCommand::PortamentoUp, param != 0);
+				chn.nOldPortaUp = static_cast<uint8>(param);
+				break;
+			case CMD_AUTO_PORTADOWN:
+				chn.autoSlide.SetActive(AutoSlideCommand::PortamentoDown, param != 0);
+				chn.nOldPortaDown = static_cast<uint8>(param);
+				break;
+			case CMD_AUTO_PORTAUP_FINE:
+				chn.autoSlide.SetActive(AutoSlideCommand::FinePortamentoUp, param != 0);
+				chn.nOldFinePortaUpDown = static_cast<uint8>(param);
+				break;
+			case CMD_AUTO_PORTADOWN_FINE:
+				chn.autoSlide.SetActive(AutoSlideCommand::FinePortamentoDown, param != 0);
+				chn.nOldFinePortaUpDown = static_cast<uint8>(param);
+				break;
+
+			// Volume Slide
+			case CMD_VOLUMESLIDE:
+				if (param || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+			// Tone-Portamento
+			case CMD_TONEPORTAMENTO:
+				TonePortamento(nChn, static_cast<uint16>(param));
+				break;
+
+			// Tone-Portamento + Volume Slide
+			case CMD_TONEPORTAVOL:
+				if ((param) || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
+				TonePortamento(nChn, 0);
+				break;
+
+			// Vibrato
+			case CMD_VIBRATO:
+				Vibrato(chn, param);
+				break;
+
+			// Vibrato + Volume Slide
+			case CMD_VIBRATOVOL:
+				if ((param) || (GetType() != MOD_TYPE_MOD)) VolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
+				Vibrato(chn, 0);
+				break;
+
+			// Set Speed
+			case CMD_SPEED:
+				if(m_PlayState.m_flags[SONG_FIRSTTICK])
+					SetSpeed(m_PlayState, param);
+				break;
+
+			// Set Tempo
+			case CMD_TEMPO:
+				if(m_playBehaviour[kMODVBlankTiming])
+				{
+					// ProTracker MODs with VBlank timing: All Fxx parameters set the tick count.
+					if(m_PlayState.m_flags[SONG_FIRSTTICK] && param != 0) SetSpeed(m_PlayState, param);
+					break;
+				}
+				{
+					param = CalculateXParam(m_PlayState.m_nPattern, m_PlayState.m_nRow, nChn);
+					if (GetType() & (MOD_TYPE_S3M|MOD_TYPE_IT|MOD_TYPE_MPT))
+					{
+						if (param) chn.nOldTempo = static_cast<ModCommand::PARAM>(param); else param = chn.nOldTempo;
+					}
+					TEMPO t(param, 0);
+					LimitMax(t, GetModSpecifications().GetTempoMax());
+					SetTempo(t);
+				}
+				break;
+
+			// Set Offset
+			case CMD_OFFSET:
+				if(triggerNote)
+				{
+					// FT2 compatibility: Portamento + Offset = Ignore offset
+					// Test case: porta-offset.xm
+					if(bPorta && GetType() == MOD_TYPE_XM)
+						break;
+
+					ProcessSampleOffset(chn, nChn, m_PlayState);
+				}
+				break;
+
+			// Disorder Tracker 2 percentage offset
+			case CMD_OFFSETPERCENTAGE:
+				if(triggerNote)
+				{
+					SampleOffset(chn, Util::muldiv_unsigned(chn.nLength, param, 256));
+				}
+				break;
+
+			// Arpeggio
+			case CMD_ARPEGGIO:
+				// IT compatibility 01. Don't ignore Arpeggio if no note is playing (also valid for ST3)
+				if(m_PlayState.m_nTickCount) break;
+				if((!chn.nPeriod || !chn.nNote)
+					&& (chn.pModInstrument == nullptr || !chn.pModInstrument->HasValidMIDIChannel())	// Plugin arpeggio
+					&& !m_playBehaviour[kITArpeggio] && (GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT))) break;
+				if (!param && (GetType() & (MOD_TYPE_XM | MOD_TYPE_MOD))) break;	// Only important when editing MOD/XM files (000 effects are removed when loading files where this means "no effect")
+				chn.nCommand = CMD_ARPEGGIO;
+				if (param) chn.nArpeggio = static_cast<ModCommand::PARAM>(param);
+				break;
+
+			// Retrig
+			case CMD_RETRIG:
+				if (GetType() & (MOD_TYPE_XM|MOD_TYPE_MT2))
+				{
+					if (!(param & 0xF0)) param |= chn.nRetrigParam & 0xF0;
+					if (!(param & 0x0F)) param |= chn.nRetrigParam & 0x0F;
+					param |= 0x100; // increment retrig count on first row
+				}
+				// IT compatibility 15. Retrigger
+				if(m_playBehaviour[kITRetrigger])
+				{
+					if (param) chn.nRetrigParam = static_cast<uint8>(param & 0xFF);
+					RetrigNote(nChn, chn.nRetrigParam, (volcmd == VOLCMD_OFFSET) ? vol + 1 : 0);
+				} else
+				{
+					// XM Retrig
+					if (param) chn.nRetrigParam = static_cast<uint8>(param & 0xFF); else param = chn.nRetrigParam;
+					RetrigNote(nChn, param, (volcmd == VOLCMD_OFFSET) ? vol + 1 : 0);
+				}
+				break;
+
+			// Tremor
+			case CMD_TREMOR:
+				if(!m_PlayState.m_flags[SONG_FIRSTTICK])
 				{
 					break;
 				}
-				CHANNELINDEX firstChn = nChn, lastChn = nChn;
-				if(echoType == 1)
-				{
-					firstChn = 0;
-					lastChn = GetNumChannels() - 1;
-				}
-				for(CHANNELINDEX c = firstChn; c <= lastChn; c++)
-				{
-					ChnSettings[c].dwFlags.set(CHN_NOFX, enable == 1);
-					m_PlayState.Chn[c].dwFlags.set(CHN_NOFX, enable == 1);
-				}
-			}
-			break;
-#endif // NO_PLUGINS
 
-		// Digi Booster sample reverse
-		case CMD_DIGIREVERSESAMPLE:
-			DigiBoosterSampleReverse(chn, static_cast<ModCommand::PARAM>(param));
-			break;
+				// IT compatibility 12. / 13. Tremor (using modified DUMB's Tremor logic here because of old effects - http://dumb.sf.net/)
+				if(m_playBehaviour[kITTremor])
+				{
+					if(param && !m_SongFlags[SONG_ITOLDEFFECTS])
+					{
+						// Old effects have different length interpretation (+1 for both on and off)
+						if(param & 0xF0)
+							param -= 0x10;
+						if(param & 0x0F)
+							param -= 0x01;
+						chn.nTremorParam = static_cast<ModCommand::PARAM>(param);
+					}
+					chn.nTremorCount |= 0x80; // set on/off flag
+				} else if(m_playBehaviour[kFT2Tremor])
+				{
+					// XM Tremor. Logic is being processed in sndmix.cpp
+					chn.nTremorCount |= 0x80; // set on/off flag
+				}
+
+				chn.nCommand = CMD_TREMOR;
+				if(param)
+					chn.nTremorParam = static_cast<ModCommand::PARAM>(param);
+
+				break;
+
+			// Set Global Volume
+			case CMD_GLOBALVOLUME:
+				// IT compatibility: Only apply global volume on first tick (and multiples)
+				// Test case: GlobalVolFirstTick.it
+				if(!m_PlayState.m_flags[SONG_FIRSTTICK])
+					break;
+				// ST3 applies global volume on tick 1 and does other weird things, but we won't emulate this for now.
+	// 			if(((GetType() & MOD_TYPE_S3M) && m_nTickCount != 1)
+	// 				|| (!(GetType() & MOD_TYPE_S3M) && !m_PlayState.m_flags[SONG_FIRSTTICK]))
+	// 			{
+	// 				break;
+	// 			}
+
+				// FT2 compatibility: On channels that are "left" of the global volume command, the new global volume is not applied
+				// until the second tick of the row. Since we apply global volume on the mix buffer rather than note volumes, this
+				// cannot be fixed for now.
+				// Test case: GlobalVolume.xm
+	// 			if(IsCompatibleMode(TRK_FASTTRACKER2) && m_PlayState.m_flags[SONG_FIRSTTICK] && m_nMusicSpeed > 1)
+	// 			{
+	// 				break;
+	// 			}
+
+				if (!(GetType() & GLOBALVOL_7BIT_FORMATS)) param *= 2;
+
+				// IT compatibility 16. ST3 and IT ignore out-of-range values.
+				// Test case: globalvol-invalid.it
+				if(param <= 128)
+				{
+					m_PlayState.m_nGlobalVolume = param * 2;
+				} else if(!(GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_S3M)))
+				{
+					m_PlayState.m_nGlobalVolume = 256;
+				}
+				m_PlayState.Chn[m_playBehaviour[kPerChannelGlobalVolSlide] ? nChn : 0].autoSlide.SetActive(AutoSlideCommand::GlobalVolumeSlide, false);
+				break;
+
+			// Global Volume Slide
+			case CMD_GLOBALVOLSLIDE:
+				//IT compatibility 16. Saving last global volume slide param per channel (FT2/IT)
+				GlobalVolSlide(m_PlayState, static_cast<ModCommand::PARAM>(param), m_playBehaviour[kPerChannelGlobalVolSlide] ? nChn : 0);
+				break;
+
+			// Set 8-bit Panning
+			case CMD_PANNING8:
+				if(m_PlayState.m_flags[SONG_FIRSTTICK])
+				{
+					Panning(chn, param, Pan8bit);
+				}
+				break;
+
+			// Panning Slide
+			case CMD_PANNINGSLIDE:
+				PanningSlide(chn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+			// Tremolo
+			case CMD_TREMOLO:
+				Tremolo(chn, param);
+				break;
+
+			// Fine Vibrato
+			case CMD_FINEVIBRATO:
+				FineVibrato(chn, param);
+				break;
+
+			// MOD/XM Exx Extended Commands
+			case CMD_MODCMDEX:
+				ExtendedMODCommands(nChn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+			// S3M/IT Sxx Extended Commands
+			case CMD_S3MCMDEX:
+				ExtendedS3MCommands(nChn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+			// Key Off
+			case CMD_KEYOFF:
+				// This is how Key Off is supposed to sound... (in FT2 at least)
+				if(m_playBehaviour[kFT2KeyOff])
+				{
+					if (m_PlayState.m_nTickCount == param)
+					{
+						// XM: Key-Off + Sample == Note Cut
+						if(chn.pModInstrument == nullptr || !chn.pModInstrument->VolEnv.dwFlags[ENV_ENABLED])
+						{
+							if(param == 0 && (chn.rowCommand.instr || chn.rowCommand.volcmd != VOLCMD_NONE)) // FT2 is weird....
+							{
+								chn.dwFlags.set(CHN_NOTEFADE);
+							}
+							else
+							{
+								chn.dwFlags.set(CHN_FASTVOLRAMP);
+								chn.nVolume = 0;
+							}
+						}
+						KeyOff(chn);
+					}
+				}
+				// This is how it's NOT supposed to sound...
+				else
+				{
+					if(m_PlayState.m_flags[SONG_FIRSTTICK])
+						KeyOff(chn);
+				}
+				break;
+
+			// Extra-fine porta up/down
+			case CMD_XFINEPORTAUPDOWN:
+				switch(param & 0xF0)
+				{
+				case 0x10:
+					ExtraFinePortamentoUp(chn, param & 0x0F);
+					if(!m_playBehaviour[kPluginIgnoreTonePortamento])
+						MidiPortamento(nChn, 0xE0 | (param & 0x0F), true);
+					break;
+				case 0x20:
+					ExtraFinePortamentoDown(chn, param & 0x0F);
+					if(!m_playBehaviour[kPluginIgnoreTonePortamento])
+						MidiPortamento(nChn, -static_cast<int>(0xE0 | (param & 0x0F)), true);
+					break;
+				// ModPlug XM Extensions (ignore in compatible mode)
+				case 0x50:
+				case 0x60:
+				case 0x70:
+				case 0x90:
+				case 0xA0:
+					if(!m_playBehaviour[kFT2RestrictXCommand]) ExtendedS3MCommands(nChn, static_cast<ModCommand::PARAM>(param));
+					break;
+				}
+				break;
+
+			case CMD_FINETUNE:
+			case CMD_FINETUNE_SMOOTH:
+				if(m_PlayState.m_flags[SONG_FIRSTTICK] || cmd == CMD_FINETUNE_SMOOTH)
+					SetFinetune(m_PlayState.m_nPattern, m_PlayState.m_nRow, nChn, m_PlayState, cmd == CMD_FINETUNE_SMOOTH);
+				break;
+
+			// Set Channel Global Volume
+			case CMD_CHANNELVOLUME:
+				if(!m_PlayState.m_flags[SONG_FIRSTTICK]) break;
+				if (param <= 64)
+				{
+					chn.nGlobalVol = static_cast<uint8>(param);
+					chn.dwFlags.set(CHN_FASTVOLRAMP);
+				}
+				break;
+
+			// Channel volume slide
+			case CMD_CHANNELVOLSLIDE:
+				ChannelVolSlide(chn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+			// Panbrello (IT)
+			case CMD_PANBRELLO:
+				Panbrello(chn, param);
+				break;
+
+			// Set Envelope Position
+			case CMD_SETENVPOSITION:
+				if(m_PlayState.m_flags[SONG_FIRSTTICK])
+				{
+					chn.VolEnv.nEnvPosition = param;
+
+					// FT2 compatibility: FT2 only sets the position of the panning envelope if the volume envelope's sustain flag is set
+					// Test case: SetEnvPos.xm
+					if(!m_playBehaviour[kFT2SetPanEnvPos] || chn.VolEnv.flags[ENV_SUSTAIN])
+					{
+						chn.PanEnv.nEnvPosition = param;
+						chn.PitchEnv.nEnvPosition = param;
+					}
+				}
+				break;
+
+			// MED Synth Jump (handled in InstrumentSynth) / MIDI Panning
+			case CMD_MED_SYNTH_JUMP:
+	#ifndef NO_PLUGINS
+				if(chn.isFirstTick)
+				{
+					if(IMixPlugin *plugin = GetChannelInstrumentPlugin(chn); plugin != nullptr)
+						plugin->MidiCC(MIDIEvents::MIDICC_Panposition_Coarse, static_cast<uint8>(param & 0x7F), nChn);
+				}
+	#endif  // NO_PLUGINS
+				break;
+
+			// Position Jump
+			case CMD_POSITIONJUMP:
+				PositionJump(m_PlayState, nChn);
+				break;
+
+			// Pattern Break
+			case CMD_PATTERNBREAK:
+				if(ROWINDEX row = PatternBreak(m_PlayState, nChn, static_cast<ModCommand::PARAM>(param)); row != ROWINDEX_INVALID)
+				{
+					m_PlayState.m_breakRow = row;
+					if(m_PlayState.m_flags[SONG_PATTERNLOOP])
+					{
+						//If song is set to loop and a pattern break occurs we should stay on the same pattern.
+						//Use nPosJump to force playback to "jump to this pattern" rather than move to next, as by default.
+						m_PlayState.m_posJump = m_PlayState.m_nCurrentOrder;
+					}
+				}
+				break;
+
+			// IMF / PTM Note Slides
+			case CMD_NOTESLIDEUP:
+			case CMD_NOTESLIDEDOWN:
+			case CMD_NOTESLIDEUPRETRIG:
+			case CMD_NOTESLIDEDOWNRETRIG:
+				// Note that this command seems to be a bit buggy in Polytracker... Luckily, no tune seems to seriously use this
+				// (Vic uses it e.g. in Spaceman or Perfect Reason to slide effect samples, noone will notice the difference :)
+				NoteSlide(chn, param, cmd == CMD_NOTESLIDEUP || cmd == CMD_NOTESLIDEUPRETRIG, cmd == CMD_NOTESLIDEUPRETRIG || cmd == CMD_NOTESLIDEDOWNRETRIG);
+				break;
+
+			// PTM Reverse sample + offset (executed on every tick)
+			case CMD_REVERSEOFFSET:
+				ReverseSampleOffset(chn, static_cast<ModCommand::PARAM>(param));
+				break;
+
+	#ifndef NO_PLUGINS
+			// DBM: Toggle DSP Echo
+			case CMD_DBMECHO:
+				if(m_PlayState.m_nTickCount == 0)
+				{
+					uint32 echoType = (param >> 4), enable = (param & 0x0F);
+					if(echoType > 2 || enable > 1)
+					{
+						break;
+					}
+					CHANNELINDEX firstChn = nChn, lastChn = nChn;
+					if(echoType == 1)
+					{
+						firstChn = 0;
+						lastChn = GetNumChannels() - 1;
+					}
+					for(CHANNELINDEX c = firstChn; c <= lastChn; c++)
+					{
+						ChnSettings[c].dwFlags.set(CHN_NOFX, enable == 1);
+						m_PlayState.Chn[c].dwFlags.set(CHN_NOFX, enable == 1);
+					}
+				}
+				break;
+	#endif // NO_PLUGINS
+
+			// Digi Booster sample reverse
+			case CMD_DIGIREVERSESAMPLE:
+				DigiBoosterSampleReverse(chn, static_cast<ModCommand::PARAM>(param));
+				break;
 		
-		case CMD_AUTO_VOLUMESLIDE:
-			AutoVolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
-			break;
+			case CMD_AUTO_VOLUMESLIDE:
+				AutoVolumeSlide(chn, static_cast<ModCommand::PARAM>(param));
+				break;
 
-		case CMD_TONEPORTA_DURATION:
-			if(chn.rowCommand.IsNote() && triggerNote)
-				TonePortamentoWithDuration(chn, static_cast<ModCommand::PARAM>(param));
-			break;
+			case CMD_TONEPORTA_DURATION:
+				if(chn.rowCommand.IsNote() && triggerNote)
+					TonePortamentoWithDuration(chn, static_cast<ModCommand::PARAM>(param));
+				break;
 
-		case CMD_VOLUMEDOWN_DURATION:
-			if(m_PlayState.m_nTickCount == 0)
-				ChannelVolumeDownWithDuration(chn, static_cast<ModCommand::PARAM>(param));
-			break;
+			case CMD_VOLUMEDOWN_DURATION:
+				if(m_PlayState.m_nTickCount == 0)
+					ChannelVolumeDownWithDuration(chn, static_cast<ModCommand::PARAM>(param));
+				break;
 
-		default:
-			break;
-		}
+			default:
+				break;
+			}
 
-		if(m_playBehaviour[kST3EffectMemory] && cmd != CMD_NONE && param != 0)
-		{
-			UpdateS3MEffectMemory(chn, static_cast<ModCommand::PARAM>(param));
-		}
+			if(m_playBehaviour[kST3EffectMemory] && cmd != CMD_NONE && param != 0)
+			{
+				UpdateS3MEffectMemory(chn, static_cast<ModCommand::PARAM>(param));
+			}
 
-		if(chn.rowCommand.instr)
-		{
-			// Not necessarily consistent with actually playing instrument for IT compatibility
-			chn.nOldIns = chn.rowCommand.instr;
-		}
+			if(chn.rowCommand.instr)
+			{
+				// Not necessarily consistent with actually playing instrument for IT compatibility
+				chn.nOldIns = chn.rowCommand.instr;
+			}
 
-		ProcessAutoSlides(m_PlayState, nChn);
+			ProcessAutoSlides(m_PlayState, nChn);
+			if(chn.noteTickDelay >= 0)
+			{
+				chn.noteTickDelay -= 1;
+			}
+			if(chn.noteTickDelay > 0)
+			{
+				chn.noteTickDelay -= 1;
+			}
 	} // for(...) end
-
+	//}//pooperino
 	// Navigation Effects
 	if(m_PlayState.m_flags[SONG_FIRSTTICK])
 	{

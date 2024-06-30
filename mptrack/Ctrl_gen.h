@@ -44,11 +44,11 @@ class CCtrlGeneral final : public CModControlDlg
 public:
 	CEdit m_EditTitle, m_EditArtist;
 	CEdit m_EditSpeed, m_EditGlobalVol, m_EditRestartPos,
-		  m_EditSamplePA, m_EditVSTiVol;
+		  m_EditSamplePA, m_EditVSTiVol, m_EditNoteTickDelay;
 	CNumberEdit m_EditTempo;
 	CButton m_BtnModType;
 	CSpinButtonCtrl m_SpinTempo, m_SpinSpeed, m_SpinGlobalVol, m_SpinRestartPos, 
-				    m_SpinSamplePA, m_SpinVSTiVol;
+				    m_SpinSamplePA, m_SpinVSTiVol, m_SpinNoteTickDelay;
 	CComboBox m_CbnResampling;
 
 	CSliderCtrl m_SliderTempo, m_SliderSamplePreAmp, m_SliderGlobalVol, m_SliderVSTiVol;
@@ -100,6 +100,7 @@ protected:
 	afx_msg void OnTempoChanged();
 	afx_msg void OnSpeedChanged();
 	afx_msg void OnGlobalVolChanged();
+	afx_msg void OnNoteTickDelayChanged();
 	afx_msg void OnVSTiVolChanged();
 	afx_msg void OnSamplePAChanged();
 	afx_msg void OnRestartPosChanged();

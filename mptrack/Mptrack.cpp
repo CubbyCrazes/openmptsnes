@@ -1079,7 +1079,7 @@ bool CTrackApp::CheckSystemSupport()
 		mpt::ustring text;
 		text += U_("Your CPU is too old to run this variant of OpenMPT.") + lf;
 		text += U_("OpenMPT will exit now.") + lf;
-		Reporting::Error(text, "OpenMPT");
+		Reporting::Error(text, "OpenMPT: SNES Edition!");
 		return false;
 	}
 	if(!SystemCanRunCurrentBuild())
@@ -1089,13 +1089,13 @@ bool CTrackApp::CheckSystemSupport()
 			mpt::ustring text;
 			text += U_("Your system does not meet the minimum requirements for this variant of OpenMPT.") + lf;
 			text += U_("OpenMPT will exit now.") + lf;
-			Reporting::Error(text, "OpenMPT");
+			Reporting::Error(text, "OpenMPT: SNES Edition!");
 			return false;
 		} else
 		{
 			mpt::ustring text;
 			text += U_("Your system does not meet the minimum requirements for this variant of OpenMPT.") + lf;
-			Reporting::Error(text, "OpenMPT");
+			Reporting::Error(text, "OpenMPT: SNES Edition!");
 			// may work though
 		}
 	}
@@ -1393,7 +1393,7 @@ BOOL CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	};
 	SoundDevice::SysInfo sysInfo = GetSysInfo();
 	SoundDevice::AppInfo appInfo;
-	appInfo.SetName(U_("OpenMPT"));
+	appInfo.SetName(U_("OpenMPT: SNES Edition!"));
 	appInfo.SetHWND(*m_pMainWnd);
 	appInfo.BoostedThreadPriorityXP = TrackerSettings::Instance().SoundBoostedThreadPriority;
 	appInfo.BoostedThreadMMCSSClassVista = TrackerSettings::Instance().SoundBoostedThreadMMCSSClass;

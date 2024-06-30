@@ -909,7 +909,6 @@ BEGIN_MESSAGE_MAP(CCtrlInstruments, CModControlDlg)
 	ON_EN_CHANGE(IDC_EDIT15,			&CCtrlInstruments::OnPPSChanged)
 	ON_EN_CHANGE(IDC_PITCHWHEELDEPTH,	&CCtrlInstruments::OnPitchWheelDepthChanged)
 	ON_EN_CHANGE(IDC_EDIT2,				&CCtrlInstruments::OnAttackChanged)
-	ON_EN_CHANGE(IDC_EDIT3008,			&CCtrlInstruments::OnNoteTickDelayChanged)
 
 	ON_EN_SETFOCUS(IDC_SAMPLE_NAME,		&CCtrlInstruments::OnEditFocus)
 	ON_EN_SETFOCUS(IDC_SAMPLE_FILENAME,	&CCtrlInstruments::OnEditFocus)
@@ -2256,30 +2255,6 @@ void CCtrlInstruments::OnGlobalVolChanged()
 				if(chn.pModInstrument == pIns)
 				{
 					chn.UpdateInstrumentVolume(chn.pModSample, pIns);
-				}
-			}
-			SetModified(InstrumentHint().Info(), false);
-		}
-	}
-}
-
-void CCtrlInstruments::OnNoteTickDelayChanged()
-{
-	ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
-	if((!IsLocked()) && (pIns))
-	{
-		int nTD = GetDlgItemInt(IDC_EDIT3008);
-		Limit(nTD, 0, 127);
-		if(nTD != (int)pIns->noteTickDelay)
-		{
-			if(!m_startedEdit) PrepareUndo("Set Note Tick Delay");
-			// Live-adjust volume
-			pIns->noteTickDelay = nTD;
-			for(auto &chn : m_sndFile.m_PlayState.Chn)
-			{
-				if(chn.pModInstrument == pIns)
-				{
-					chn.UpdateInstrumentNoteTickDelay(pIns);
 				}
 			}
 			SetModified(InstrumentHint().Info(), false);

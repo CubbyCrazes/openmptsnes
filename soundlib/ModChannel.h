@@ -80,6 +80,10 @@ struct ModChannel
 	FlagSet<ChannelFlags> dwFlags;
 	mixsample_t nROfs, nLOfs;
 	uint32 nRampLength;
+	int32 bitchCount;
+	ModCommand::NOTE oldNote;
+	uint32 oldInstr;
+	uint8 oldNewIns;
 
 	const ModSample *pModSample;  // Currently assigned sample slot (may already be stopped)
 	Paula::State paulaState;
@@ -223,8 +227,6 @@ struct ModChannel
 	bool InSustainLoop() const noexcept;
 
 	void UpdateInstrumentVolume(const ModSample *smp, const ModInstrument *ins);
-
-	void UpdateInstrumentNoteTickDelay(const ModInstrument *ins);
 
 	void SetInstrumentPan(int32 pan, const CSoundFile &sndFile);
 	void RestorePanAndFilter();

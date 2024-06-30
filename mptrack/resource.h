@@ -122,6 +122,11 @@
 #define IDD_TEMPO_SWING                 540
 #define IDD_OPTIONS_WINE                541
 #define IDD_MODIFIEDSAMPLES             542
+#define IDB_BITMAP1                     543
+#define IDI_ICON1                       544
+#define IDB_PNG1                        545
+#define IDB_BITMAP2                     548
+#define IDB_BITMAP3                     549
 #define IDC_BUTTON1                     1001
 #define IDC_BUTTON2                     1002
 #define IDC_BUTTON3                     1003
@@ -555,6 +560,7 @@
 #define IDC_SPIN_RESTARTPOS             1899
 #define IDC_SPIN_SAMPLEPA               1900
 #define IDC_PROGRESS1                   1901
+#define IDC_SPIN_GLOBALVOL2             1901
 #define IDC_PROGRESS2                   1902
 #define IDC_SPIN_VSTIVOL                1921
 #define IDC_TABCTRL1                    1951
@@ -573,6 +579,7 @@
 #define IDC_BUTTON_MODTYPE              2012
 #define IDC_EDIT_SAMPLEPA               2013
 #define IDC_EDIT_MODTYPE                2014
+#define IDC_EDIT_GLOBALVOL2             2014
 #define IDC_EDIT_CURRENTTEMPO           2015
 #define IDC_EDIT_CURRENTSPEED           2016
 #define IDC_SPIN_CURRENTTEMPO           2017
@@ -986,6 +993,9 @@
 #define IDC_CHECK_UPDATEINSTALLAUTOMATICALLY 2516
 #define IDC_SUBSONG                     2517
 #define IDC_EDIT3008                    2518
+#define IDC_EDIT_NOTETICKDELAY          2519
+#define IDC_SPIN_NOTETICKDELAY          2520
+#define IDC_DABOBFOTUDAY                2521
 #define ID_FILE_NEWMOD                  32771
 #define ID_FILE_NEWXM                   32772
 #define ID_FILE_NEWS3M                  32773
@@ -1125,11 +1135,8 @@
 #define ID_INFO                         32920
 #define ID_VIEWPLUGNAMES                32921
 #define ID_EQSLIDER_BASE                32922
-// From here: Command range [ID_EQSLIDER_BASE, ID_EQSLIDER_BASE + MAX_EQ_BANDS]
 #define ID_EQMENU_BASE                  32950
-// From here: Command range [ID_EQMENU_BASE, ID_EQMENU_BASE + EQ_MAX_FREQS]
 #define ID_SELECT_MIDI_DEVICE           33000
-// From here: Command range [ID_SELECT_MIDI_DEVICE, ID_SELECT_MIDI_DEVICE + MAX_MIDI_DEVICES]
 #define ID_EDIT_SPLITRECSELECT          33900
 #define ID_REARRANGE_SAMPLES            33901
 #define ID_CHANNEL_MANAGER              33905
@@ -1143,9 +1150,7 @@
 #define ID_MODTREE_SAVEITEM             33917
 #define ID_PLUGIN_SETUP                 33918
 #define ID_PRESET_SET                   33920
-// From here: Command range [ID_PRESET_SET, ID_PRESET_SET + PRESETS_PER_GROUP]
 #define ID_PLUGSELECT                   35000
-// From here: Command range [ID_PLUGSELECT, ID_PLUGSELECT + MAX_MIXPLUGINS]
 #define ID_VSTMACRO_INFO                36002
 #define ID_VSTINPUT_INFO                36003
 #define ID_APPROX_BPM                   36007
@@ -1175,27 +1180,20 @@
 #define ID_ADDTUNINGGROUPGEOMETRIC      36035
 #define ID_ADDTUNINGGEOMETRIC           36036
 #define ID_SELECTINST                   36100
-// From here: Command range [ID_SELECTINST, ID_SELECTINST + MAX_INSTRUMENTS]
 #define ID_PLUG_RECORDAUTOMATION        37003
 #define ID_LEARN_MACRO_FROM_PLUGGUI     37004
-// From here: Command range [ID_LEARN_MACRO_FROM_PLUGGUI, ID_LEARN_MACRO_FROM_PLUGGUI + NUM_MACROS]
 #define ID_CHANGE_INSTRUMENT            37020
-// From here: Command range [ID_CHANGE_INSTRUMENT, ID_CHANGE_INSTRUMENT + MAX_INSTRUMENTS]
 #define ID_CLEAR_SELECTION              38000
 #define ID_PLUG_PASSKEYS                38001
 #define ID_VIEW_SONGPROPERTIES          38002
 #define ID_SEQUENCE_ITEM                38003
-// From here: Command range [ID_SEQUENCE_ITEM, ID_SEQUENCE_ITEM + MAX_SEQUENCES + 2]
 #define ID_NOTEMAP_EDITSAMPLE           39000
-// From here: Command range [ID_NOTEMAP_EDITSAMPLE, ID_NOTEMAP_EDITSAMPLE + MAX_SAMPLES]
 #define ID_GROW_SELECTION               43001
 #define ID_SHRINK_SELECTION             43002
 #define ID_RUN_SCRIPT                   43003
 #define ID_EXAMPLE_MODULES              43004
-// From here: Command range [ID_EXAMPLE_MODULES, ID_EXAMPLE_MODULES_LASTINRANGE]
 #define ID_EXAMPLE_MODULES_LASTINRANGE  43054
 #define ID_FILE_OPENTEMPLATE            43055
-// From here: Command range [ID_FILE_OPENTEMPLATE, ID_FILE_OPENTEMPLATE_LASTINRANGE]
 #define ID_FILE_OPENTEMPLATE_LASTINRANGE 43105
 #define ID_INDICATOR_TIME               43143
 #define ID_INDICATOR_USER               43144
@@ -1252,11 +1250,9 @@
 #define ID_MODTREE_RENAME               43239
 #define ID_UPDATE_AVAILABLE             43240
 #define ID_CHANGE_PCNOTE_PARAM          43242
-// From here: Command range [ID_CHANGE_PCNOTE_PARAM, ID_CHANGE_PCNOTE_PARAM + ModCommand::maxColumnValue]
 #define ID_MODTREE_CLOSE                44243
 #define ID_SAMPLE_GENERATOR_MENU        44244
 #define ID_SAMPLE_GENERATOR_PRESET_MENU 44344
-// From here: Command range [ID_SAMPLE_GENERATOR_PRESET_MENU, ID_SAMPLE_GENERATOR_PRESET_MENU + MAX_SAMPLEGEN_EXPRESSIONS - 1]
 #define ID_SAMPLE_GENERATE              44445
 #define ID_NOTEMAP_TRANS_UP             44446
 #define ID_NOTEMAP_TRANS_DOWN           44447
@@ -1274,15 +1270,12 @@
 #define ID_HELP_EXAMPLEMODULES          44459
 #define ID_FILE_SAVEASTEMPLATE          44460
 #define ID_SAMPLE_CUE_1                 44461
-// From here: Command range [ID_SAMPLE_CUE_1, ID_SAMPLE_CUE_9]
 #define ID_SAMPLE_CUE_9                 44469
 #define ID_ORDERLIST_INSERT_SEPARATOR   44470
 #define ID_ENVELOPE_LOAD                44471
 #define ID_ENVELOPE_SAVE                44472
 #define ID_PLUGINEDITOR_SLIDERS_BASE    44500
-// From here: Command range [ID_PLUGINEDITOR_SLIDERS_BASE, ID_PLUGINEDITOR_SLIDERS_BASE + NUM_PLUGINEDITOR_PARAMETERS]
 #define ID_PLUGINEDITOR_EDIT_BASE       44550
-// From here: Command range [ID_PLUGINEDITOR_EDIT_BASE, ID_PLUGINEDITOR_EDIT_BASE + NUM_PLUGINEDITOR_PARAMETERS]
 #define ID_HELP_SHOWSETTINGSFOLDER      44600
 #define ID_FILE_CLOSEALL                44601
 #define ID_HELPSHOW                     44602
@@ -1295,7 +1288,6 @@
 #define ID_SETQUANTIZE                  44609
 #define ID_PLUG_RECORD_MIDIOUT          44610
 #define ID_MRU_LIST_FIRST               44611
-// From here: Command range [ID_MRU_LIST_FIRST, ID_MRU_LIST_LAST]
 #define ID_MRU_LIST_LAST                44642
 #define ID_FILE_APPENDMODULE            44643
 #define ID_SAMPLE_16BITCONVERT          44644
@@ -1317,9 +1309,9 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
-#define _APS_NEXT_RESOURCE_VALUE        543
+#define _APS_NEXT_RESOURCE_VALUE        550
 #define _APS_NEXT_COMMAND_VALUE         44657
-#define _APS_NEXT_CONTROL_VALUE         2518
+#define _APS_NEXT_CONTROL_VALUE         2522
 #define _APS_NEXT_SYMED_VALUE           901
 #endif
 #endif

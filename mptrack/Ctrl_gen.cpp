@@ -47,6 +47,7 @@ BEGIN_MESSAGE_MAP(CCtrlGeneral, CModControlDlg)
 	ON_EN_SETFOCUS(IDC_EDIT_SONGTITLE,   &CCtrlGeneral::OnEnSetfocusEditSongtitle)
 	ON_EN_KILLFOCUS(IDC_EDIT_RESTARTPOS, &CCtrlGeneral::OnRestartPosDone)
 	ON_CBN_SELCHANGE(IDC_COMBO1,         &CCtrlGeneral::OnResamplingChanged)
+	ON_EN_CHANGE(IDC_EDIT_NOTETICKDELAY, &CCtrlGeneral::OnNoteTickDelayChanged)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -62,6 +63,8 @@ void CCtrlGeneral::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SPIN_SPEED,		m_SpinSpeed);
 	DDX_Control(pDX, IDC_EDIT_GLOBALVOL,	m_EditGlobalVol);
 	DDX_Control(pDX, IDC_SPIN_GLOBALVOL,	m_SpinGlobalVol);
+	DDX_Control(pDX, IDC_EDIT_NOTETICKDELAY, m_EditNoteTickDelay);
+	DDX_Control(pDX, IDC_SPIN_NOTETICKDELAY, m_SpinNoteTickDelay);
 	DDX_Control(pDX, IDC_EDIT_VSTIVOL,		m_EditVSTiVol);
 	DDX_Control(pDX, IDC_SPIN_VSTIVOL,		m_SpinVSTiVol);
 	DDX_Control(pDX, IDC_EDIT_SAMPLEPA,		m_EditSamplePA);
@@ -106,6 +109,7 @@ BOOL CCtrlGeneral::OnInitDialog()
 	m_SpinGlobalVol.SetRange(0, (short)(256 / GetGlobalVolumeFactor()));
 	m_SpinSamplePA.SetRange(0, 2000);
 	m_SpinVSTiVol.SetRange(0, 2000);
+	m_SpinNoteTickDelay.SetRange(0, 255);
 	m_SpinRestartPos.SetRange32(0, ORDERINDEX_MAX);
 	
 	m_SliderGlobalVol.SetRange(0, MAX_SLIDER_GLOBAL_VOL);
@@ -566,6 +570,31 @@ void CCtrlGeneral::OnSpeedChanged()
 	}
 }
 
+void CCtrlGeneral::OnNoteTickDelayChanged()
+{
+	TCHAR s[16];
+	if(m_bInitialized)
+	{
+		m_EditNoteTickDelay.GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+		if(s[0])
+		{
+			UINT n = mpt::parse<UINT>(s);
+			n = Clamp(n, 0, 255);
+			if(n != m_sndFile.Order().GetDefaultNoteTickDelay())
+			{
+				m_editsLocked = true;
+				m_EditNoteTickDelay.SetModify(FALSE);
+				m_sndFile.Order().SetDefaultNoteTickDelay(n);
+				m_sndFile.m_PlayState.m_nNoteTickDelay = n;
+				m_modDoc.SetModified();
+				m_modDoc.UpdateAllViews(nullptr, GeneralHint().General(), this);
+				// Update envelope grid view
+				m_modDoc.UpdateAllViews(nullptr, InstrumentHint().Envelope(), this);
+				m_editsLocked = false;
+			}
+		}
+	}
+}
 
 void CCtrlGeneral::OnVSTiVolChanged()
 {
@@ -743,6 +772,7 @@ BOOL CCtrlGeneral::GetToolTipText(UINT uId, LPTSTR pszText)
 		case IDC_EDIT_TEMPO:
 		case IDC_EDIT_SPEED:
 		case IDC_EDIT_RESTARTPOS:
+		case IDC_EDIT_NOTETICKDELAY:
 		case IDC_EDIT_GLOBALVOL:
 		case IDC_EDIT_VSTIVOL:
 			if(isEnabled)

@@ -2546,6 +2546,12 @@
     <Image Include="..\..\mptrack\res\view_pat.bmp">
       <Filter>mptrack\res</Filter>
     </Image>
+    <Image Include="..\..\mptrack\res\splashno.png" />
+    <Image Include="..\..\mptrack\res\bitmap1.bmp" />
+    <Image Include="..\..\mptrack\res\icon1.ico" />
+    <Image Include="D:\the plumba guy and um yeah.png" />
+    <Image Include="..\..\mptrack\res\bitmap2.bmp" />
+    <Image Include="..\..\..\..\..\Downloads\bob2.bmp" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\vs\debug\openmpt.natvis">

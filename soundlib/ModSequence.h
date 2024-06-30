@@ -33,7 +33,7 @@ protected:
 	ORDERINDEX m_restartPos = 0;   // Restart position when playback of this order ended
 	TEMPO m_defaultTempo{125, 0};  // Default tempo at start of sequence
 	uint32 m_defaultSpeed = 6;     // Default ticks per row at start of sequence
-
+	uint32 m_defaultNoteTickDelay = 2;
 public:
 	ModSequence(CSoundFile &sndFile);
 	ModSequence(ModSequence &&) noexcept = default;
@@ -136,6 +136,9 @@ public:
 
 	inline void SetDefaultSpeed(uint32 speed) noexcept { m_defaultSpeed = speed ? speed : 6; }
 	inline uint32 GetDefaultSpeed() const noexcept { return m_defaultSpeed; }
+
+	inline void SetDefaultNoteTickDelay(uint32 notetickdelay) noexcept { m_defaultNoteTickDelay = notetickdelay ? notetickdelay : 2; }
+	inline uint32 GetDefaultNoteTickDelay() const noexcept { return m_defaultNoteTickDelay; }
 };
 
 

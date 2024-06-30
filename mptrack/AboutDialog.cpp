@@ -261,7 +261,7 @@ BOOL CAboutDlg::OnInitDialog()
 
 	m_bmp.SubclassDlgItem(IDC_BITMAP1, this);
 
-	m_Tab.InsertItem(TCIF_TEXT, 0, _T("OpenMPT"), 0, 0, 0, 0);
+	m_Tab.InsertItem(TCIF_TEXT, 0, _T("OpenMPT: SNES Edition!"), 0, 0, 0, 0);
 	m_Tab.InsertItem(TCIF_TEXT, 1, _T("Components"), 0, 0, 0, 0);
 	m_Tab.InsertItem(TCIF_TEXT, 2, _T("Credits"), 0, 0, 0, 0);
 	m_Tab.InsertItem(TCIF_TEXT, 3, _T("License"), 0, 0, 0, 0);
