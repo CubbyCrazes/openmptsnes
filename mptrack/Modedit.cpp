@@ -699,8 +699,8 @@ PATTERNINDEX CModDoc::InsertPattern(ROWINDEX rows, ORDERINDEX ord)
 SAMPLEINDEX CModDoc::InsertSample()
 {
 	SAMPLEINDEX i = m_SndFile.GetNextFreeSample();
-
-	if((i > std::numeric_limits<ModCommand::INSTR>::max() && !m_SndFile.GetNumInstruments()) || i == SAMPLEINDEX_INVALID)
+	//i > std::numeric_limits<ModCommand::INSTR>::max() && (!m_SndFile.GetNumInstruments()) || 
+	if(i == SAMPLEINDEX_INVALID)
 	{
 		ErrorBox(IDS_ERR_TOOMANYSMP, CMainFrame::GetMainFrame());
 		return SAMPLEINDEX_INVALID;

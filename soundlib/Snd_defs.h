@@ -46,8 +46,8 @@ inline constexpr ROWINDEX MAX_PATTERN_ROWS       = 4096;
 inline constexpr ROWINDEX MAX_ROWS_PER_BEAT      = 65536;
 inline constexpr ORDERINDEX MAX_ORDERS           = ORDERINDEX_MAX + 1;
 inline constexpr PATTERNINDEX MAX_PATTERNS       = 4000;
-inline constexpr SAMPLEINDEX MAX_SAMPLES         = 4000;
-inline constexpr INSTRUMENTINDEX MAX_INSTRUMENTS = 256;
+inline constexpr SAMPLEINDEX MAX_SAMPLES         = 16384;
+inline constexpr INSTRUMENTINDEX MAX_INSTRUMENTS = 16384;
 inline constexpr PLUGINDEX MAX_MIXPLUGINS        = 250;
 
 inline constexpr SEQUENCEINDEX MAX_SEQUENCES     = 50;

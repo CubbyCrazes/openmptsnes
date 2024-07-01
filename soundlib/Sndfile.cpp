@@ -1980,8 +1980,8 @@ SAMPLEINDEX CSoundFile::GetNextFreeSample(INSTRUMENTINDEX targetInstrument, SAMP
 // Find an unused instrument slot.
 // INSTRUMENTINDEX_INVALID is returned if no free instrument slot could be found.
 INSTRUMENTINDEX CSoundFile::GetNextFreeInstrument(INSTRUMENTINDEX start) const
-{
-	for(INSTRUMENTINDEX i = start; i <= GetModSpecifications().instrumentsMax; i++)
+{//GetModSpecifications().instrumentsMax
+	for(INSTRUMENTINDEX i = start; i <= 16384; i++)
 	{
 		if(Instruments[i] == nullptr)
 		{
