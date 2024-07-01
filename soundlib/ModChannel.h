@@ -84,6 +84,9 @@ struct ModChannel
 	ModCommand::NOTE oldNote;
 	uint32 oldInstr;
 	uint8 oldNewIns;
+	ModCommand::COMMAND oldCmd;
+	ModCommand::VOLCMD oldVolCmd;
+	ModCommand::VOL oldVol;
 
 	const ModSample *pModSample;  // Currently assigned sample slot (may already be stopped)
 	Paula::State paulaState;

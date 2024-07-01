@@ -2791,6 +2791,9 @@ bool CSoundFile::ProcessEffects()
 				chn.oldNote = note;
 				chn.oldInstr = instr;
 				chn.oldNewIns = chn.nNewIns;
+				//chn.oldCmd = cmd;
+				chn.oldVolCmd = volcmd;
+				chn.oldVol = vol;
 			}
 			//(((tickCount - nStartTick) == 2) && ModCommand::IsNote(note)) || 
 			if(chn.noteTickDelay == 0)
@@ -2800,6 +2803,9 @@ bool CSoundFile::ProcessEffects()
 					note = chn.oldNote;
 					instr = chn.oldInstr;
 					chn.nNewIns = chn.oldNewIns;
+					//cmd = chn.oldCmd;
+					volcmd = chn.oldVolCmd;
+					vol = chn.oldVol;
 				//}
 				if(ModCommand::IsNote(note) && m_playBehaviour[kFT2Transpose])
 				{
@@ -3293,7 +3299,7 @@ bool CSoundFile::ProcessEffects()
 			}
 
 			// Effects
-			if(cmd != CMD_NONE) switch (cmd)
+			if(cmd != CMD_NONE) switch(cmd)
 			{
 			// Set Volume
 			case CMD_VOLUME:
