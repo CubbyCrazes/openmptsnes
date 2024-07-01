@@ -83,6 +83,7 @@ public:
 		state->m_lTotalSampleCount = 0;
 		state->m_nMusicSpeed = sndFile.Order().GetDefaultSpeed();
 		state->m_nMusicTempo = sndFile.Order().GetDefaultTempo();
+		state->m_nNoteTickDelay = sndFile.Order().GetDefaultNoteTickDelay();
 		state->m_nGlobalVolume = sndFile.m_nDefaultGlobalVolume;
 		state->m_globalScriptState.Initialize(sndFile);
 		chnSettings.assign(sndFile.GetNumChannels(), {});
@@ -2777,12 +2778,15 @@ bool CSoundFile::ProcessEffects()
 			ModCommand::NOTE note = chn.rowCommand.note;
 			if(instr) chn.nNewIns = static_cast<ModCommand::INSTR>(instr);
 
-			if((((tickCount - nStartTick) < m_PlayState.m_nNoteTickDelay) || ((m_PlayState.m_nNoteTickDelay == 0) && ((tickCount - nStartTick) == 0))) && ModCommand::IsNote(note))
+			if((((tickCount - nStartTick) < m_PlayState.m_nNoteTickDelay) || ((m_PlayState.m_nNoteTickDelay == 0) && ((tickCount - nStartTick) == 0))) && (ModCommand::IsNote(note) || ModCommand::IsSpecialNote(note)))
 			{
-				chn.nVolume = 0;
-				chn.nRealVolume = 0;
-				chn.nInsVol = 0;
-				KeyOff(chn);
+				if(!ModCommand::IsSpecialNote(note)) 
+				{
+					chn.nVolume = 0;
+					chn.nRealVolume = 0;
+					chn.nInsVol = 0;
+					KeyOff(chn);
+				}
 				chn.noteTickDelay = m_PlayState.m_nNoteTickDelay;
 				chn.oldNote = note;
 				chn.oldInstr = instr;

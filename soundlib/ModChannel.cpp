@@ -33,6 +33,7 @@ void ModChannel::Reset(ResetFlags resetMask, const CSoundFile &sndFile, CHANNELI
 		nPatternLoop = 0;
 		nFadeOutVol = 0;
 		dwFlags.set(CHN_KEYOFF | CHN_NOTEFADE);
+		noteTickDelay = -1;
 		dwOldFlags.reset();
 		autoSlide.Reset();
 		nnaGeneration = 0;
@@ -115,6 +116,7 @@ void ModChannel::Stop()
 	nPeriod = 0;
 	increment.Set(0);
 	position.Set(0);
+	noteTickDelay = -1;
 	nLeftVU = nRightVU = 0;
 	nVolume = 0;
 	pCurrentSample = nullptr;
